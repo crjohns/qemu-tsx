@@ -106,8 +106,8 @@ static const char *svm_feature_name[] = {
 };
 
 static const char *cpuid_7_0_ebx_feature_name[] = {
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, "smep",
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, "hle", NULL, NULL, "smep",
+    NULL, NULL, NULL, "rtm", NULL, NULL, NULL, NULL,
     NULL, NULL, NULL, NULL, "smap", NULL, NULL, NULL,
     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 };
@@ -343,6 +343,7 @@ static x86_def_t builtin_x86_defs[] = {
             CPUID_EXT2_LM | CPUID_EXT2_SYSCALL | CPUID_EXT2_NX,
         .ext3_features = CPUID_EXT3_LAHF_LM | CPUID_EXT3_SVM |
             CPUID_EXT3_ABM | CPUID_EXT3_SSE4A,
+        .cpuid_7_0_ebx_features = (CPUID_7_0_EBX_HLE | CPUID_7_0_EBX_RTM),
         .xlevel = 0x8000000A,
     },
     {
@@ -1344,6 +1345,8 @@ void x86_cpu_list(FILE *f, fprintf_function cpu_fprintf)
     listflags(buf, sizeof(buf), (uint32_t)~0, ext2_feature_name, 1);
     (*cpu_fprintf)(f, "  %s\n", buf);
     listflags(buf, sizeof(buf), (uint32_t)~0, ext3_feature_name, 1);
+    (*cpu_fprintf)(f, "  %s\n", buf);
+    listflags(buf, sizeof(buf), (uint32_t)~0, cpuid_7_0_ebx_feature_name, 1);
     (*cpu_fprintf)(f, "  %s\n", buf);
 }
 

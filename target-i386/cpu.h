@@ -485,7 +485,9 @@
 #define CPUID_SVM_PAUSEFILTER  (1 << 10)
 #define CPUID_SVM_PFTHRESHOLD  (1 << 12)
 
+#define CPUID_7_0_EBX_HLE      (1 << 4)
 #define CPUID_7_0_EBX_SMEP     (1 << 7)
+#define CPUID_7_0_EBX_RTM      (1 << 11)
 #define CPUID_7_0_EBX_SMAP     (1 << 20)
 
 #define CPUID_VENDOR_INTEL_1 0x756e6547 /* "Genu" */
