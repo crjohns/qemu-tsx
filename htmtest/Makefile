@@ -7,19 +7,27 @@ QEMU_SYSTEM = $(QEMU_INSTALL)/bin/qemu-system-x86_64
 
 QEMU_CPU ?= Haswell
 
-
-default: htm-test
-
-
-clean: 
-	rm -f htm-test
-
-htm-test: htm-test.c htm.h
-	gcc $^ -o $@ -g
+TESTS := htm-test
 
 
-test: htm-test install-qemu
-	$(QEMU_USER) -cpu $(QEMU_CPU) ./htm-test
+all: $(TESTS)
+
+
+clean:
+	rm -f $(TESTS) *.o
+
+$(TESTS) : %: %.o
+	$(CXX) $< -o $@
+
+%.o: %.c
+	$(CXX) $< -c -o $@ -g
+
+test: install-qemu $(TESTS) $(foreach test, $(TESTS), $(test)-test)
+
+%-test:
+	$(QEMU_USER) -cpu $(QEMU_CPU) ./$*
+
+
 	
 
 
