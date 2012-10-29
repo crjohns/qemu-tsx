@@ -1,0 +1,6 @@
+TODO List for HTM:
+
+Look into disas_inst to add new opcodes. They may be extended opcodes, so look into that.
+What about 3 byte opcodes?
+
+
