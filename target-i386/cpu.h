@@ -825,6 +825,10 @@ typedef struct CPUX86State {
 
     uint64_t tsc_aux;
 
+    /* transaction state */
+    uint8_t rtm_active;
+    uint8_t hle_active;
+
     /* vmstate */
     uint16_t fpus_vmstate;
     uint16_t fptag_vmstate;
