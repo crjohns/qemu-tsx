@@ -828,6 +828,14 @@ typedef struct CPUX86State {
     /* transaction state */
     uint8_t rtm_active;
     uint8_t hle_active;
+#ifdef TARGET_X86_64
+    uint64_t restartIP;
+#else
+    uint32_t restartIP;
+#endif
+
+    /* HLE state */
+    uint32_t hle_nest_count;
 
     /* vmstate */
     uint16_t fpus_vmstate;

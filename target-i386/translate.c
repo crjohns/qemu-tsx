@@ -36,6 +36,8 @@
 #define PREFIX_LOCK   0x04
 #define PREFIX_DATA   0x08
 #define PREFIX_ADR    0x10
+#define PREFIX_XACQUIRE PREFIX_REPNZ
+#define PREFIX_XRELEASE PREFIX_REPZ
 
 #ifdef TARGET_X86_64
 #define CODE64(s) ((s)->code64)
