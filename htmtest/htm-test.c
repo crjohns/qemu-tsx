@@ -11,5 +11,10 @@ int main()
     else
         printf("Not in txn\n");
 
+    int lock;
+    elock_acquire(&lock);
+    elock_release(&lock);
+    printf("Did lock test\n");
+
     return 0;
 }
