@@ -24,7 +24,7 @@
 #include "helper.h"
 
 
-void helper_xtest(CPUX86State *env)
+void HELPER(xtest)(CPUX86State *env)
 {
     /* set zero flag if in a transaction */
     if(env->hle_active || env->rtm_active)
