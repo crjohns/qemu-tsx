@@ -16,5 +16,20 @@ int main()
     elock_release(&lock);
     printf("Did lock test\n");
 
+
+    int reason;
+    if((reason = xbegin()) == 0)
+    {
+        xabort(2);
+        xend();
+    }
+    else
+    {
+        printf("TXN aborted");
+        return 0;
+    }
+
+    printf("TXN Ended");
+
     return 0;
 }

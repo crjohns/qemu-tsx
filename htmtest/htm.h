@@ -47,4 +47,32 @@ static void elock_release(int *lock)
 
 }
 
+#define XBEGIN_OP(jmp) ".byte 0xc7, 0xf8; " ".long " #jmp "\n\t"
+
+static unsigned int xbegin()
+{
+    register unsigned int ret;
+    asm volatile(XBEGIN_OP(2)
+                 "jmp 1f\n\t"
+                 "movl %%eax, %0\n\t" /* TXN abort, return error */
+                 "jmp 2f\n\t"
+                 "1:\n\t" /* In TXN, return 0 */
+                 "movl $0, %0\n\t"
+                 "2:\n\t"
+                 : "=r"(ret) : : "%eax");
+
+    return ret;
+}
+
+#define XEND_OP ".byte 0x0f, 0x01, 0xd5\n\t"
+static void xend()
+{
+    asm volatile(XEND_OP);
+}
+
+
+/* defined as macro since xabort required encoded immediate */
+#define xabort(imm) asm(".byte 0xc6, 0xf8, " #imm "\n\t"\
+                        "nop;nop;nop;nop;nop;nop;nop;nop;\n\t"); /* nop slide for clean disasm */
+
 #endif
