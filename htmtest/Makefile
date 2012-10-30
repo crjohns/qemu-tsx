@@ -4,6 +4,7 @@ QEMU_BUILD_JOBS = 6
 
 QEMU_USER = $(QEMU_INSTALL)/bin/qemu-x86_64
 QEMU_SYSTEM = $(QEMU_INSTALL)/bin/qemu-system-x86_64
+QEMU_FLAGS = 
 
 QEMU_CPU ?= Haswell
 
@@ -19,13 +20,13 @@ clean:
 $(TESTS) : %: %.o
 	$(CXX) $< -o $@
 
-%.o: %.c
+%.o: %.c htm.h
 	$(CXX) $< -c -o $@ -g
 
 test: install-qemu $(TESTS) $(foreach test, $(TESTS), $(test)-test)
 
 %-test:
-	$(QEMU_USER) -cpu $(QEMU_CPU) ./$*
+	$(QEMU_USER) $(QEMU_FLAGS) -cpu $(QEMU_CPU) ./$*
 
 
 	
