@@ -5210,6 +5210,12 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         else
             ot = dflag + OT_WORD;
         modrm = cpu_ldub_code(cpu_single_env, s->pc++);
+        if(modrm == 0xf8) /* Intel TSE xbegin */
+        {
+            gen_helper_xbegin(cpu_single_env, imm);
+        }
+
+
         mod = (modrm >> 6) & 3;
         if (mod != 3) {
             s->rip_offset = insn_const_size(ot);

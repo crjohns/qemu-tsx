@@ -828,14 +828,28 @@ typedef struct CPUX86State {
     /* transaction state */
     uint8_t rtm_active;
     uint8_t hle_active;
+
+    /* RTM state */
+#define MAX_RTM_NEST_COUNT 128
+    uint32_t rtm_nest_count;
+#ifdef TARGET_X86_64
+    uint64_t fallbackRIP;
+#else
+    uint32_t fallbackEIP;
+#endif
+
+    target_ulong rtm_shadow_regs[CPU_NB_REGS];
+    target_ulong rtm_shadow_eip;
+    target_ulong rtm_shadow_eflags;
+
+
+    /* HLE state */
+    uint32_t hle_nest_count;
 #ifdef TARGET_X86_64
     uint64_t restartIP;
 #else
     uint32_t restartIP;
 #endif
-
-    /* HLE state */
-    uint32_t hle_nest_count;
 
     /* vmstate */
     uint16_t fpus_vmstate;

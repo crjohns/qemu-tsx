@@ -40,3 +40,13 @@ void HELPER(xtest)(CPUX86State *env)
 
 
 }
+
+void HELPER(xbegin)(CPUX86State *env, unsigned int imm)
+{
+    if(env->rtm_nest_count < MAX_RTM_NEST_COUNT)
+    {
+        uint64_t tempip = 
+
+        env->hle_active = 1;
+    }
+}
