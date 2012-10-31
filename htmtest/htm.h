@@ -1,6 +1,7 @@
 #ifndef HTM_H
 #define HTM_H
 
+#include <stdlib.h>
 
 static int xtest()
 {
@@ -52,6 +53,7 @@ static void elock_release(int *lock)
 static unsigned int xbegin()
 {
     register unsigned int ret;
+    unsigned long long int v1, v2, v3, v4, v5;
     asm volatile(XBEGIN_OP(2)
                  "jmp 1f\n\t" /* TXM abort skips this instruction */
                  "movl %%eax, %0\n\t" /* TXN abort, return error */
@@ -60,6 +62,26 @@ static unsigned int xbegin()
                  "movl $0, %0\n\t"
                  "2:\n\t"
                  : "=r"(ret) : : "%eax");
+
+    printf("ret is %d\n", ret);
+
+
+    asm volatile("mov %%rsp, %0\n\t"
+                 "mov 0x40(%%rsp), %%rax\n\t"
+                 "mov %%rax, %1\n\t"
+                 "mov 0x48(%%rsp), %%rax\n\t"
+                 "mov %%rax, %2\n\t"
+                 "mov 0x50(%%rsp), %%rax\n\t"
+                 "mov %%rax, %3\n\t"
+                 "call 1f\n\t"
+                 "1: pop %%rax\n\t"
+                 "mov %%rax, %4\n\t"
+                 : "=m"(v1),"=m"(v2),"=m"(v3),"=m"(v4),"=m"(v5) : : "%rax");
+
+    printf("[ip %x] rsp %llx, s0 %llx, s1 %llx, s2 %llx\n", v5, v1, v2, v3, v4);
+
+    if(ret)
+        exit(1);
 
     return ret;
 }

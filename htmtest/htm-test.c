@@ -18,7 +18,9 @@ int main()
 
 
     int reason;
-    if((reason = xbegin()) == 0)
+    reason = xbegin();
+    printf("reason is %d\n", reason);
+    if(reason == 0)
     {
         if(xtest())
             printf("In txn\n");
