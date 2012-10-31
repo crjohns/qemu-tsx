@@ -23,6 +23,7 @@
 #include "qemu-log.h"
 #include "helper.h"
 
+#include <stdio.h>
 
 void HELPER(xtest)(CPUX86State *env)
 {
@@ -35,18 +36,71 @@ void HELPER(xtest)(CPUX86State *env)
     /* clear other flags */
     env->eflags &= (~(CC_C | CC_O | CC_S | CC_P | CC_A));
 
+
     /* lazy evaluation */
+    env->cc_src = env->eflags;
     env->cc_op = CC_OP_EFLAGS;
-
-
 }
 
-void HELPER(xbegin)(CPUX86State *env, unsigned int imm)
+
+#define TXA_XABORT (1 << 0)
+#define TXA_RETRY  (1 << 1)
+#define TXA_CONFLICT (1 << 2)
+#define TXA_OVERFLOW (1 << 3)
+#define TXA_BREAKPOINT (1 << 4)
+#define TXA_NESTED (1 << 5)
+#define TXA_ARG(arg) ((arg & 0xFF) << 24)
+
+static void txn_begin_processing(CPUX86State *env, target_ulong destpc)
+{
+    env->fallbackIP = destpc;
+    /* need to backup more regs? */
+    memcpy(env->rtm_shadow_regs, env->regs, sizeof(target_ulong)*CPU_NB_REGS);
+    env->rtm_shadow_eflags = env->eflags;
+}
+
+static target_ulong txn_abort_processing(CPUX86State *env, uint32_t set_eax)
+{
+    env->eip = env->fallbackIP;
+    memcpy(env->regs, env->rtm_shadow_regs, sizeof(target_ulong)*CPU_NB_REGS);
+    env->eflags = env->rtm_shadow_eflags;
+    env->cc_op = CC_OP_EFLAGS;
+    env->cc_src = env->eflags;
+
+    env->rtm_nest_count = 0;
+    env->rtm_active = 0;
+
+    env->regs[R_EAX] = set_eax;
+
+    return env->eip;
+}
+
+void HELPER(xbegin)(CPUX86State *env, target_ulong destpc, int32_t dflag)
 {
     if(env->rtm_nest_count < MAX_RTM_NEST_COUNT)
     {
-        uint64_t tempip = 
+        /* TODO Several exceptions missing here
+           mostly have to do with non-64-bit modes.
+           Ignoring this for now */
 
-        env->hle_active = 1;
+        env->rtm_nest_count += 1;
+        env->rtm_active = 1;
+
+        txn_begin_processing(env, destpc);
     }
+    else
+    {
+        /* XXX is OVERFLOW appropriate here? */
+        txn_abort_processing(env, TXA_OVERFLOW | TXA_NESTED);
+    }
+}
+
+void HELPER(xend)(CPUX86State *env)
+{
+}
+
+void HELPER(xabort)(CPUX86State *env, uint32_t reason)
+{
+    /* XXX should be NOP if not active... */
+    txn_abort_processing(env, TXA_XABORT | TXA_ARG(reason));
 }

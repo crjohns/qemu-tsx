@@ -5210,9 +5210,28 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
         else
             ot = dflag + OT_WORD;
         modrm = cpu_ldub_code(cpu_single_env, s->pc++);
-        if(modrm == 0xf8) /* Intel TSE xbegin */
+
+        if(b == 0xc6 && modrm == 0xf8) /* Intel TSA xabort */
         {
-            gen_helper_xbegin(cpu_single_env, imm);
+            if(!(cpu_single_env->cpuid_7_0_ebx_features & CPUID_7_0_EBX_RTM))
+                goto illegal_op;
+
+            uint32_t reason = insn_get(s, OT_BYTE);
+            gen_helper_xabort(cpu_env, reason);
+
+
+            break;
+        }
+
+        if(b == 0xc7 && modrm == 0xf8) /* Intel TSE xbegin */
+        {
+            if(!(cpu_single_env->cpuid_7_0_ebx_features & CPUID_7_0_EBX_RTM))
+                goto illegal_op;
+
+            int offset = insn_get(s, ot);
+            tcg_gen_movi_tl(cpu_tmp0, s->pc + offset); /* why? */
+            gen_helper_xbegin(cpu_env, cpu_tmp0, s->dflag);
+            break;
         }
 
 

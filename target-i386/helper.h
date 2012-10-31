@@ -221,6 +221,8 @@ DEF_HELPER_3(rcrq, tl, env, tl, tl)
 #endif
 
 DEF_HELPER_1(xtest, void, env)
-DEF_HELPER_1(xtest, void, env)
+DEF_HELPER_3(xbegin, void, env, tl, s32)
+DEF_HELPER_1(xend, void, env)
+DEF_HELPER_2(xabort, void, env, i32)
 
 #include "def-helper.h"
