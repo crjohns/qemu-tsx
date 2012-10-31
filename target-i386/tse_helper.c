@@ -59,7 +59,7 @@ static void txn_begin_processing(CPUX86State *env, target_ulong destpc)
     env->rtm_shadow_eflags = env->eflags;
 }
 
-static target_ulong txn_abort_processing(CPUX86State *env, uint32_t set_eax)
+static void txn_abort_processing(CPUX86State *env, uint32_t set_eax)
 {
     env->eip = env->fallbackIP;
     memcpy(env->regs, env->rtm_shadow_regs, sizeof(target_ulong)*CPU_NB_REGS);
@@ -71,8 +71,6 @@ static target_ulong txn_abort_processing(CPUX86State *env, uint32_t set_eax)
     env->rtm_active = 0;
 
     env->regs[R_EAX] = set_eax;
-
-    return env->eip;
 }
 
 void HELPER(xbegin)(CPUX86State *env, target_ulong destpc, int32_t dflag)

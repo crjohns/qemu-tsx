@@ -5218,6 +5218,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 
             uint32_t reason = insn_get(s, OT_BYTE);
             gen_helper_xabort(cpu_env, reason);
+            gen_eob(s);
 
 
             break;
