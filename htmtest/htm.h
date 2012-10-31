@@ -4,9 +4,9 @@
 
 static int xtest()
 {
-    int ret;
+    register int ret;
     asm volatile(".byte 0x0f, 0x01, 0xd6\n\t"
-                 "jne not_found\n\t"
+                 "je not_found\n\t"
                  "movl $0x1, %0\n\t"
                  "jmp end\n\t"
                  "not_found:;\n\t"
@@ -53,7 +53,7 @@ static unsigned int xbegin()
 {
     register unsigned int ret;
     asm volatile(XBEGIN_OP(2)
-                 "jmp 1f\n\t"
+                 "jmp 1f\n\t" /* TXM abort skips this instruction */
                  "movl %%eax, %0\n\t" /* TXN abort, return error */
                  "jmp 2f\n\t"
                  "1:\n\t" /* In TXN, return 0 */

@@ -20,6 +20,11 @@ int main()
     int reason;
     if((reason = xbegin()) == 0)
     {
+        if(xtest())
+            printf("In txn\n");
+        else
+            printf("Not in txn\n");
+
         xabort(2);
         xend();
     }
