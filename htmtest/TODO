@@ -1,5 +1,24 @@
 TODO List for HTM:
 
-Finish xabort so we can get back to txn entry
+Implement transactional memory by changing memory load microcode
 
+mov (location), T0;
 
+becomes:
+
+mov (env->rtm_active), T0
+test T0, T0
+jne chkfail
+## find cache line in transaction cache, set ZF if found ##
+jne chkfail ; Jump if not managed by txn (main memory value is correct)
+mov (relevant part of cache line), T0
+jmp done
+skip: mov (location), T0
+done:
+
+This checks if RTM is active, and if so it will use copies from some transactional
+cache tagged by address/CACHE_LINE_SIZE containing the cache line data. This is
+this CPU's private copy for transactions (their write set).
+
+Writes will need to check if RTM is active and, if so, create new entries in the
+transactional cache.
