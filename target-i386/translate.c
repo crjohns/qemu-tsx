@@ -546,37 +546,49 @@ static inline void gen_op_ld_v(int idx, TCGv t0, TCGv a0)
     }
 }
 
+
 static inline void gen_wrap_op_ld_v(int idx, TCGv t0, TCGv a0)
 {
     if(cpu_single_env->cpuid_7_0_ebx_features & 
-            (CPUID_7_0_EBX_RTM | CPUID_7_0_EBX_HLE))
+            (CPUID_7_0_EBX_RTM | CPUID_7_0_EBX_HLE) && false)
     {
         int ldone;
         int ltxn;
 
-
-        TCGv tmp = tcg_temp_new();
+        TCGv t0_l, a0_l;
+        TCGv tmp;
 
         ltxn = gen_new_label();
         ldone = gen_new_label();
+
+        /* need locals or we lose value after branch (very bad) */
+        t0_l = tcg_temp_local_new();
+        a0_l = tcg_temp_local_new();
+        tmp = tcg_temp_new();
+
+        tcg_gen_mov_tl(t0_l, t0);
+        tcg_gen_mov_tl(a0_l, a0);
         
         tcg_gen_ld_tl(tmp, cpu_env, offsetof(CPUX86State, rtm_active));
 
         tcg_gen_brcondi_tl(TCG_COND_NE, tmp, 0, ltxn);
         /* not in txn */
-        gen_op_ld_v(idx, t0, a0);
+        gen_op_ld_v(idx, t0_l, a0_l);
         tcg_gen_br(ldone);
 
         gen_set_label(ltxn);
         /* in txn */
-        gen_op_ld_v(idx, t0, a0);
+        gen_op_ld_v(idx, t0_l, a0_l);
 
 
         gen_set_label(ldone);
         /* done */
+        tcg_gen_mov_tl(t0, t0_l); /* copy local back to input temp */
+        tcg_gen_mov_tl(a0, a0_l);
 
         tcg_temp_free(tmp);
-        gen_op_set_cc_op(CC_OP_DYNAMIC);
+        tcg_temp_free(t0_l);
+        tcg_temp_free(a0_l);
     }
     else
         gen_op_ld_v(idx, t0, a0);
