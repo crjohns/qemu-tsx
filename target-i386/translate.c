@@ -504,6 +504,7 @@ static inline void gen_op_addq_A0_reg_sN(int shift, int reg)
 }
 #endif
 
+
 static inline void gen_op_lds_T0_A0(int idx)
 {
     int mem_index = (idx >> 2) - 1;
@@ -524,6 +525,7 @@ static inline void gen_op_lds_T0_A0(int idx)
 static inline void gen_op_ld_v(int idx, TCGv t0, TCGv a0)
 {
     int mem_index = (idx >> 2) - 1;
+    
     switch(idx & 3) {
     case 0:
         tcg_gen_qemu_ld8u(t0, a0, mem_index);
@@ -544,20 +546,58 @@ static inline void gen_op_ld_v(int idx, TCGv t0, TCGv a0)
     }
 }
 
+static inline void gen_wrap_op_ld_v(int idx, TCGv t0, TCGv a0)
+{
+    if(cpu_single_env->cpuid_7_0_ebx_features & 
+            (CPUID_7_0_EBX_RTM | CPUID_7_0_EBX_HLE))
+    {
+        int ldone;
+        int ltxn;
+
+
+        TCGv tmp = tcg_temp_new();
+
+        ltxn = gen_new_label();
+        ldone = gen_new_label();
+        
+        tcg_gen_ld_tl(tmp, cpu_env, offsetof(CPUX86State, rtm_active));
+
+        tcg_gen_brcondi_tl(TCG_COND_NE, tmp, 0, ltxn);
+        /* not in txn */
+        gen_op_ld_v(idx, t0, a0);
+        tcg_gen_br(ldone);
+
+        gen_set_label(ltxn);
+        /* in txn */
+        gen_op_ld_v(idx, t0, a0);
+
+
+        gen_set_label(ldone);
+        /* done */
+
+        tcg_temp_free(tmp);
+        gen_op_set_cc_op(CC_OP_DYNAMIC);
+    }
+    else
+        gen_op_ld_v(idx, t0, a0);
+}
+
+
+
 /* XXX: always use ldu or lds */
 static inline void gen_op_ld_T0_A0(int idx)
 {
-    gen_op_ld_v(idx, cpu_T[0], cpu_A0);
+    gen_wrap_op_ld_v(idx, cpu_T[0], cpu_A0);
 }
 
 static inline void gen_op_ldu_T0_A0(int idx)
 {
-    gen_op_ld_v(idx, cpu_T[0], cpu_A0);
+    gen_wrap_op_ld_v(idx, cpu_T[0], cpu_A0);
 }
 
 static inline void gen_op_ld_T1_A0(int idx)
 {
-    gen_op_ld_v(idx, cpu_T[1], cpu_A0);
+    gen_wrap_op_ld_v(idx, cpu_T[1], cpu_A0);
 }
 
 static inline void gen_op_st_v(int idx, TCGv t0, TCGv a0)
@@ -1614,7 +1654,7 @@ static void gen_rot_rm_T1(DisasContext *s, int ot, int op1,
     /* load */
     if (op1 == OR_TMP0) {
         tcg_gen_mov_tl(a0, cpu_A0);
-        gen_op_ld_v(ot + s->mem_index, t0, a0);
+        gen_wrap_op_ld_v(ot + s->mem_index, t0, a0);
     } else {
         gen_op_mov_v_reg(ot, t0, op1);
     }
@@ -1709,7 +1749,7 @@ static void gen_rot_rm_im(DisasContext *s, int ot, int op1, int op2,
     /* load */
     if (op1 == OR_TMP0) {
         tcg_gen_mov_tl(a0, cpu_A0);
-        gen_op_ld_v(ot + s->mem_index, t0, a0);
+        gen_wrap_op_ld_v(ot + s->mem_index, t0, a0);
     } else {
         gen_op_mov_v_reg(ot, t0, op1);
     }
@@ -1855,7 +1895,7 @@ static void gen_shiftd_rm_T1_T3(DisasContext *s, int ot, int op1,
     /* load */
     if (op1 == OR_TMP0) {
         tcg_gen_mov_tl(a0, cpu_A0);
-        gen_op_ld_v(ot + s->mem_index, t0, a0);
+        gen_wrap_op_ld_v(ot + s->mem_index, t0, a0);
     } else {
         gen_op_mov_v_reg(ot, t0, op1);
     }
@@ -4988,7 +5028,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             } else {
                 gen_lea_modrm(s, modrm, &reg_addr, &offset_addr);
                 tcg_gen_mov_tl(a0, cpu_A0);
-                gen_op_ld_v(ot + s->mem_index, t0, a0);
+                gen_wrap_op_ld_v(ot + s->mem_index, t0, a0);
                 rm = 0; /* avoid warning */
             }
             label1 = gen_new_label();
@@ -6494,7 +6534,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             t0 = tcg_temp_local_new();
             if (mod != 3) {
                 gen_lea_modrm(s, modrm, &reg_addr, &offset_addr);
-                gen_op_ld_v(ot + s->mem_index, t0, cpu_A0);
+                gen_wrap_op_ld_v(ot + s->mem_index, t0, cpu_A0);
             } else {
                 rm = (modrm & 7) | REX_B(s);
                 gen_op_mov_v_reg(ot, t0, rm);
@@ -7523,7 +7563,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             rm = modrm & 7;
             if (mod != 3) {
                 gen_lea_modrm(s, modrm, &reg_addr, &offset_addr);
-                gen_op_ld_v(ot + s->mem_index, t0, cpu_A0);
+                gen_wrap_op_ld_v(ot + s->mem_index, t0, cpu_A0);
                 a0 = tcg_temp_local_new();
                 tcg_gen_mov_tl(a0, cpu_A0);
             } else {

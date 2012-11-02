@@ -826,8 +826,8 @@ typedef struct CPUX86State {
     uint64_t tsc_aux;
 
     /* transaction state */
-    uint8_t rtm_active;
-    uint8_t hle_active;
+    target_ulong rtm_active;
+    target_ulong hle_active;
 
     /* RTM state */
 #define MAX_RTM_NEST_COUNT 128
