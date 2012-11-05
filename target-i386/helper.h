@@ -220,9 +220,12 @@ DEF_HELPER_3(rclq, tl, env, tl, tl)
 DEF_HELPER_3(rcrq, tl, env, tl, tl)
 #endif
 
+/* Intel(R) TSE */
 DEF_HELPER_1(xtest, void, env)
 DEF_HELPER_3(xbegin, void, env, tl, s32)
 DEF_HELPER_1(xend, void, env)
 DEF_HELPER_2(xabort, void, env, i32)
+
+DEF_HELPER_3(xmem_read, tl, env, s32, tl)
 
 #include "def-helper.h"

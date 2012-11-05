@@ -102,3 +102,9 @@ void HELPER(xabort)(CPUX86State *env, uint32_t reason)
     /* XXX should be NOP if not active... */
     txn_abort_processing(env, TXA_XABORT | TXA_ARG(reason));
 }
+
+
+target_ulong HELPER(xmem_read)(CPUX86State *env, int32_t idx, target_ulong vaddr)
+{
+    return 0u;
+}
