@@ -547,10 +547,12 @@ static inline void gen_op_ld_v(int idx, TCGv t0, TCGv a0)
 }
 
 
-static inline void gen_wrap_op_ld_v(int idx, TCGv t0, TCGv a0)
+static void wrap_memop_v(int idx, TCGv t0, TCGv a0, 
+        void (*opfn)(int, TCGv, TCGv),
+        void (*altfn)(TCGv, TCGv_ptr, TCGv, TCGv))
 {
     if(cpu_single_env->cpuid_7_0_ebx_features & 
-            (CPUID_7_0_EBX_RTM | CPUID_7_0_EBX_HLE))
+                (CPUID_7_0_EBX_RTM | CPUID_7_0_EBX_HLE))
     {
         int ldone;
         int ltxn;
@@ -581,17 +583,15 @@ static inline void gen_wrap_op_ld_v(int idx, TCGv t0, TCGv a0)
 
         tcg_gen_brcondi_tl(TCG_COND_NE, tmp, 0, ltxn);
         /* not in txn */
-        gen_op_ld_v(idx, t0_l, a0_l);
+        opfn(idx, t0_l, a0_l);
         tcg_gen_br(ldone);
 
         gen_set_label(ltxn);
         /* in txn */
         tcg_gen_movi_i32(tmp, idx); 
-        gen_helper_xmem_read(t0_l, cpu_env, tmp, a0_l);
-        gen_op_ld_v(idx, t0_l, a0_l);
+        altfn(t0_l, cpu_env, tmp, a0_l);
+        opfn(idx, t0_l, a0_l);
         gen_helper_debug_val(t0_l);
-
-
 
         gen_set_label(ldone);
         /* done */
@@ -610,26 +610,58 @@ static inline void gen_wrap_op_ld_v(int idx, TCGv t0, TCGv a0)
         tcg_temp_free(ut);
     }
     else
-        gen_op_ld_v(idx, t0, a0);
+        opfn(idx, t0, a0);
 }
+
 
 
 
 /* XXX: always use ldu or lds */
 static inline void gen_op_ld_T0_A0(int idx)
 {
-    gen_wrap_op_ld_v(idx, cpu_T[0], cpu_A0);
+    wrap_memop_v(idx, cpu_T[0], cpu_A0, gen_op_ld_v, gen_helper_xmem_read);
 }
 
 static inline void gen_op_ldu_T0_A0(int idx)
 {
-    gen_wrap_op_ld_v(idx, cpu_T[0], cpu_A0);
+    wrap_memop_v(idx, cpu_T[0], cpu_A0, gen_op_ld_v, gen_helper_xmem_read);
 }
 
 static inline void gen_op_ld_T1_A0(int idx)
 {
-    gen_wrap_op_ld_v(idx, cpu_T[1], cpu_A0);
+    wrap_memop_v(idx, cpu_T[1], cpu_A0, gen_op_ld_v, gen_helper_xmem_read);
 }
+
+
+static inline void gen_wrap_op_st8(TCGv t0, TCGv a0, int idx)
+{
+    int mem_index = (idx >> 2) - 1;
+
+    tcg_gen_qemu_st8(t0, a0, mem_index);
+}
+
+static inline void gen_wrap_op_st16(TCGv t0, TCGv a0, int idx)
+{
+    int mem_index = (idx >> 2) - 1;
+
+    tcg_gen_qemu_st16(t0, a0, mem_index);
+}
+
+static inline void gen_wrap_op_st32(TCGv t0, TCGv a0, int idx)
+{
+    int mem_index = (idx >> 2) - 1;
+
+    tcg_gen_qemu_st32(t0, a0, mem_index);
+}
+
+#ifdef TARGET_X86_64
+static inline void gen_wrap_op_st64(TCGv t0, TCGv a0, int idx)
+{
+    int mem_index = (idx >> 2) - 1;
+
+    tcg_gen_qemu_st64(t0, a0, mem_index);
+}
+#endif
 
 static inline void gen_op_st_v(int idx, TCGv t0, TCGv a0)
 {
@@ -1685,7 +1717,7 @@ static void gen_rot_rm_T1(DisasContext *s, int ot, int op1,
     /* load */
     if (op1 == OR_TMP0) {
         tcg_gen_mov_tl(a0, cpu_A0);
-        gen_wrap_op_ld_v(ot + s->mem_index, t0, a0);
+        wrap_memop_v(ot + s->mem_index, t0, a0, gen_op_ld_v, gen_helper_xmem_read);
     } else {
         gen_op_mov_v_reg(ot, t0, op1);
     }
@@ -1780,7 +1812,7 @@ static void gen_rot_rm_im(DisasContext *s, int ot, int op1, int op2,
     /* load */
     if (op1 == OR_TMP0) {
         tcg_gen_mov_tl(a0, cpu_A0);
-        gen_wrap_op_ld_v(ot + s->mem_index, t0, a0);
+        wrap_memop_v(ot + s->mem_index, t0, a0, gen_op_ld_v, gen_helper_xmem_read);
     } else {
         gen_op_mov_v_reg(ot, t0, op1);
     }
@@ -1926,7 +1958,7 @@ static void gen_shiftd_rm_T1_T3(DisasContext *s, int ot, int op1,
     /* load */
     if (op1 == OR_TMP0) {
         tcg_gen_mov_tl(a0, cpu_A0);
-        gen_wrap_op_ld_v(ot + s->mem_index, t0, a0);
+        wrap_memop_v(ot + s->mem_index, t0, a0, gen_op_ld_v, gen_helper_xmem_read);
     } else {
         gen_op_mov_v_reg(ot, t0, op1);
     }
@@ -5059,7 +5091,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             } else {
                 gen_lea_modrm(s, modrm, &reg_addr, &offset_addr);
                 tcg_gen_mov_tl(a0, cpu_A0);
-                gen_wrap_op_ld_v(ot + s->mem_index, t0, a0);
+                wrap_memop_v(ot + s->mem_index, t0, a0, gen_op_ld_v, gen_helper_xmem_read);
                 rm = 0; /* avoid warning */
             }
             label1 = gen_new_label();
@@ -6565,7 +6597,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             t0 = tcg_temp_local_new();
             if (mod != 3) {
                 gen_lea_modrm(s, modrm, &reg_addr, &offset_addr);
-                gen_wrap_op_ld_v(ot + s->mem_index, t0, cpu_A0);
+                wrap_memop_v(ot + s->mem_index, t0, cpu_A0, gen_op_ld_v, gen_helper_xmem_read);
             } else {
                 rm = (modrm & 7) | REX_B(s);
                 gen_op_mov_v_reg(ot, t0, rm);
@@ -7594,7 +7626,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
             rm = modrm & 7;
             if (mod != 3) {
                 gen_lea_modrm(s, modrm, &reg_addr, &offset_addr);
-                gen_wrap_op_ld_v(ot + s->mem_index, t0, cpu_A0);
+                wrap_memop_v(ot + s->mem_index, t0, cpu_A0, gen_op_ld_v, gen_helper_xmem_read);
                 a0 = tcg_temp_local_new();
                 tcg_gen_mov_tl(a0, cpu_A0);
             } else {
