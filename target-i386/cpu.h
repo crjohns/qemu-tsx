@@ -22,6 +22,7 @@
 #include "config.h"
 #include "qemu-common.h"
 
+
 #ifdef TARGET_X86_64
 #define TARGET_LONG_BITS 64
 #else
@@ -672,6 +673,8 @@ typedef enum TPRAccess {
     TPR_ACCESS_WRITE,
 } TPRAccess;
 
+#include "tse.h"
+
 typedef struct CPUX86State {
     /* standard registers */
     target_ulong regs[CPU_NB_REGS];
@@ -830,13 +833,15 @@ typedef struct CPUX86State {
     target_ulong hle_active;
 
     /* RTM state */
-#define MAX_RTM_NEST_COUNT 128
     uint32_t rtm_nest_count;
     target_ulong fallbackIP;
 
     target_ulong rtm_shadow_regs[CPU_NB_REGS];
     target_ulong rtm_shadow_eip;
     target_ulong rtm_shadow_eflags;
+
+    target_ulong rtm_active_buffer_count;
+    TSE_RTM_Buffer rtm_buffers[NUM_RTM_BUFFERS];
 
 
     /* HLE state */

@@ -588,6 +588,9 @@ static inline void gen_wrap_op_ld_v(int idx, TCGv t0, TCGv a0)
         /* in txn */
         tcg_gen_movi_i32(tmp, idx); 
         gen_helper_xmem_read(t0_l, cpu_env, tmp, a0_l);
+        gen_op_ld_v(idx, t0_l, a0_l);
+        gen_helper_debug_val(t0_l);
+
 
 
         gen_set_label(ldone);
