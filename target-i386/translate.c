@@ -632,37 +632,6 @@ static inline void gen_op_ld_T1_A0(int idx)
     wrap_memop_v(idx, cpu_T[1], cpu_A0, gen_op_ld_v, gen_helper_xmem_read);
 }
 
-
-static inline void gen_wrap_op_st8(TCGv t0, TCGv a0, int idx)
-{
-    int mem_index = (idx >> 2) - 1;
-
-    tcg_gen_qemu_st8(t0, a0, mem_index);
-}
-
-static inline void gen_wrap_op_st16(TCGv t0, TCGv a0, int idx)
-{
-    int mem_index = (idx >> 2) - 1;
-
-    tcg_gen_qemu_st16(t0, a0, mem_index);
-}
-
-static inline void gen_wrap_op_st32(TCGv t0, TCGv a0, int idx)
-{
-    int mem_index = (idx >> 2) - 1;
-
-    tcg_gen_qemu_st32(t0, a0, mem_index);
-}
-
-#ifdef TARGET_X86_64
-static inline void gen_wrap_op_st64(TCGv t0, TCGv a0, int idx)
-{
-    int mem_index = (idx >> 2) - 1;
-
-    tcg_gen_qemu_st64(t0, a0, mem_index);
-}
-#endif
-
 static inline void gen_op_st_v(int idx, TCGv t0, TCGv a0)
 {
     int mem_index = (idx >> 2) - 1;
