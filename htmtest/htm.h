@@ -63,7 +63,7 @@ static unsigned int xbegin()
                  "2:\n\t"
                  : "=r"(ret) : : "%eax");
 
-    printf("ret is %d\n", ret);
+    fprintf(stderr, "ret is 0x%x\n", ret);
 
 
     asm volatile("mov %%rsp, %0\n\t"
@@ -78,7 +78,7 @@ static unsigned int xbegin()
                  "mov %%rax, %4\n\t"
                  : "=m"(v1),"=m"(v2),"=m"(v3),"=m"(v4),"=m"(v5) : : "%rax");
 
-    printf("[ip %x] rsp %llx, s0 %llx, s1 %llx, s2 %llx\n", v5, v1, v2, v3, v4);
+    fprintf(stderr, "[ip %x] rsp %llx, s0 %llx, s1 %llx, s2 %llx\n", v5, v1, v2, v3, v4);
 
     if(ret)
         exit(1);
