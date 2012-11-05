@@ -23,6 +23,10 @@
 #include "qemu-log.h"
 #include "helper.h"
 
+#if !defined(CONFIG_USER_ONLY)
+#include "softmmu_exec.h"
+#endif /* !defined(CONFIG_USER_ONLY) */
+
 #include <stdio.h>
 
 void HELPER(xtest)(CPUX86State *env)
@@ -104,7 +108,35 @@ void HELPER(xabort)(CPUX86State *env, uint32_t reason)
 }
 
 
-target_ulong HELPER(xmem_read)(CPUX86State *env, int32_t idx, target_ulong vaddr)
+target_ulong HELPER(xmem_read)(CPUX86State *env, int32_t idx, target_ulong a0)
 {
-    return 0u;
+
+    target_ulong data;
+
+    switch(idx & 3)
+    {
+        case 0:
+            data = cpu_ldub_data(env, a0);
+            break;
+        case 1:
+            data = cpu_lduw_data(env, a0);
+            break;
+        case 2:
+            data = cpu_ldl_data(env, a0);
+            break;
+        case 3:
+#ifdef TARGET_X86_64
+            data = cpu_ldq_data(env, a0);
+#endif
+            break;
+    }
+
+
+    return data;
+}
+
+
+void HELPER(debug_val)(target_ulong val)
+{
+    fprintf(stderr, "Debug val is 0x%lx\n", val);
 }
