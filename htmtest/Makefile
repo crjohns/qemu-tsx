@@ -9,8 +9,8 @@ QEMU_FLAGS =
 QEMU_CPU ?= Haswell
 
 CFLAGS = -g
-
-TESTS := htm-test
+ 
+TESTS := sse-test htm-test
 
 
 all: $(TESTS)
