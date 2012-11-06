@@ -88,7 +88,7 @@
     wrap_memop_v(idx, t0, a0, gen_op_ld_v, gen_helper_xmem_read)
 
 #define wrap_write_v(idx, t0, a0) \
-    wrap_memop_v(idx, t0, a0, gen_op_st_v, NULL)
+    wrap_memop_v(idx, t0, a0, gen_op_st_v, gen_helper_xmem_write)
 
 static void wrap_memop_v(int idx, TCGv t0, TCGv a0, 
         void (*opfn)(int, TCGv, TCGv),
@@ -128,9 +128,17 @@ static void wrap_memop_v(int idx, TCGv t0, TCGv a0,
         /* in txn */
         tcg_gen_movi_i32(tmp, idx); 
         if(altfn)
+        {
             altfn(t0_l, cpu_env, tmp, a0_l);
+            //tcg_gen_movi_tl(tmp, 0);
+            //gen_helper_debug_val(tmp, t0_l);
+        }
         opfn(idx, t0_l, a0_l);
-        //gen_helper_debug_val(t0_l);
+        if(altfn)
+        {
+            //tcg_gen_movi_tl(tmp, 1);
+            //gen_helper_debug_val(tmp, t0_l);
+        }
 
         gen_set_label(ldone);
         /* done */

@@ -228,8 +228,8 @@ DEF_HELPER_2(xabort, void, env, i32)
 
 DEF_HELPER_3(xmem_read, tl, env, s32, tl)
 DEF_HELPER_3(xmem_read_s, tl, env, s32, tl)
-DEF_HELPER_3(xmem_write, tl, env, s32, tl)
+DEF_HELPER_4(xmem_write, void, tl, env, s32, tl)
 
-DEF_HELPER_1(debug_val, void, tl)
+DEF_HELPER_2(debug_val, void, tl, tl)
 
 #include "def-helper.h"

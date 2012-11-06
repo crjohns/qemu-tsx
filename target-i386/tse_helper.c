@@ -167,7 +167,7 @@ static int do_txn_buf_read_byte(target_ulong *out_data, CPUX86State *env,
 
 }
 
-static void do_txn_buf_write_byte(uint8_t byte, CPUX86State *env, target_ulong a0)
+static int do_txn_buf_write_byte(uint8_t byte, CPUX86State *env, target_ulong a0)
 {
     target_ulong offset;
     TSE_RTM_Buffer *rtmbuf;
@@ -185,8 +185,9 @@ static void do_txn_buf_write_byte(uint8_t byte, CPUX86State *env, target_ulong a
         if(!rtmbuf)
         {
             /* Cannot alloc a new buffer, hardware buffer overflow */
+            fprintf(stderr, "ERROR: HTM overflow\n");
             txn_abort_processing(env, TXA_OVERFLOW);
-            return;
+            return 0;
         }
 
         rtmbuf->tag = (a0 >> TSE_LOG_CACHE_LINE_SIZE);
@@ -200,7 +201,7 @@ static void do_txn_buf_write_byte(uint8_t byte, CPUX86State *env, target_ulong a
     
     /* Set the byte in the buffered cache line */
     rtmbuf->data[offset] = byte;
-    return;
+    return 1;
 
 
 }
@@ -252,7 +253,6 @@ static target_ulong do_read_q(CPUX86State *env, target_ulong a0)
 
 target_ulong HELPER(xmem_read)(CPUX86State *env, int32_t idx, target_ulong a0)
 {
-
     target_ulong data;
 
     switch(idx & 3)
@@ -312,14 +312,43 @@ target_ulong HELPER(xmem_read_s)(CPUX86State *env, int32_t idx, target_ulong a0)
     return value;
 }
 
-target_ulong HELPER(xmem_write)(CPUX86State *env, int32_t idx, target_ulong a0)
+void HELPER(xmem_write)(target_ulong data, CPUX86State *env, int32_t idx, target_ulong a0)
 {
 
-    return 0u;
+    switch(idx & 3)
+    {
+        case 0:
+            do_txn_buf_write_byte(data & 0xFF, env, a0);
+            break;
+        case 1:
+            do_txn_buf_write_byte(data & 0xFF, env, a0);
+            do_txn_buf_write_byte((data >> 8) & 0xFF, env, a0+1);
+            break;
+        case 2:
+            do_txn_buf_write_byte(data & 0xFF, env, a0);
+            do_txn_buf_write_byte((data >> 8) & 0xFF, env, a0+1);
+            do_txn_buf_write_byte((data >> 16) & 0xFF, env, a0+2);
+            do_txn_buf_write_byte((data >> 24) & 0xFF, env, a0+3);
+            break;
+#ifdef TARGET_X86_64
+        case 3:
+            if(do_txn_buf_write_byte(data & 0xFF, env, a0) &&
+            do_txn_buf_write_byte((data >> 8) & 0xFF, env, a0+1)  &&
+            do_txn_buf_write_byte((data >> 16) & 0xFF, env, a0+2) &&
+            do_txn_buf_write_byte((data >> 24) & 0xFF, env, a0+3) &&
+            do_txn_buf_write_byte((data >> 32) & 0xFF, env, a0+4) &&
+            do_txn_buf_write_byte((data >> 40) & 0xFF, env, a0+5) &&
+            do_txn_buf_write_byte((data >> 48) & 0xFF, env, a0+6) &&
+            do_txn_buf_write_byte((data >> 56) & 0xFF, env, a0+7))
+                break;
+            else
+                return;
+#endif
+    }
 }
 
 
-void HELPER(debug_val)(target_ulong val)
+void HELPER(debug_val)(target_ulong tag, target_ulong val)
 {
-    fprintf(stderr, "Debug val is 0x%lx\n", val);
+    fprintf(stderr, "[tag %ld] Debug val is 0x%lx\n", tag, val);
 }

@@ -2,7 +2,7 @@
 #define TSE_H
 
 #define MAX_RTM_NEST_COUNT 128  /* max number of nested txns */
-#define NUM_RTM_BUFFERS 128     /* max number of cache lines in txn */
+#define NUM_RTM_BUFFERS 1024     /* max number of cache lines in txn */
 
 /* base 2 log of the cache line size (6 -> 64 byte lines) */
 #define TSE_LOG_CACHE_LINE_SIZE 6
