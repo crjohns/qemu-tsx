@@ -547,6 +547,82 @@ static inline void gen_op_ld_v(int idx, TCGv t0, TCGv a0)
 }
 
 
+/* Here are some hacks for dealing with temporary registers
+ 
+   For Haswell emulation, we need to check if we are in a
+   transaction before doing a memory access (which is the point
+   of the wrapper function).
+
+   This test requires a branch to test if transactional mode
+   is active, however, QEMU does not maintain the state
+   of temporary registers through branches. A local temporary
+   is required for that, but the temps (e.g. cpu_T[0]) are
+   not locals.
+
+   The result is that register assignments for those temporaries are 
+   unexpectedly cleared for the microcode before the load.
+
+   These macros preserve the original values of temporaries 
+   across the internal branch.
+
+*/
+
+
+#define DEF_LTEMPS() \
+    TCGv local_T[2]; \
+    TCGv local_T3, local_tmp0, local_tmp4, local_tmp5; \
+    TCGv_ptr local_ptr0, local_ptr1; \
+    TCGv_i32 local_tmp2_i32, local_tmp3_i32; \
+    TCGv_i64 local_tmp1_i64;
+
+#define LOCALIZE_TEMPS() \
+    local_T[0] = tcg_temp_local_new(); \
+    tcg_gen_mov_tl(local_T[0], cpu_T[0]); \
+    local_T[1] = tcg_temp_local_new(); \
+    tcg_gen_mov_tl(local_T[1], cpu_T[1]); \
+    local_T3 = tcg_temp_local_new(); \
+    tcg_gen_mov_tl(local_T3, cpu_T3); \
+    local_tmp0 = tcg_temp_local_new(); \
+    tcg_gen_mov_tl(local_tmp0, cpu_tmp0); \
+    local_tmp4 = tcg_temp_local_new(); \
+    tcg_gen_mov_tl(local_tmp4, cpu_tmp4); \
+    local_tmp5 = tcg_temp_local_new(); \
+    tcg_gen_mov_tl(local_tmp5, cpu_tmp5); \
+    local_ptr0 = tcg_temp_local_new(); \
+    tcg_gen_mov_tl(local_ptr0, cpu_ptr0); \
+    local_ptr1 = tcg_temp_local_new(); \
+    tcg_gen_mov_tl(local_ptr1, cpu_ptr1); \
+    local_tmp2_i32 = tcg_temp_local_new(); \
+    tcg_gen_mov_i32(local_tmp2_i32, cpu_tmp2_i32); \
+    local_tmp3_i32 = tcg_temp_local_new(); \
+    tcg_gen_mov_i32(local_tmp3_i32, cpu_tmp3_i32); \
+    local_tmp1_i64 = tcg_temp_local_new(); \
+    tcg_gen_mov_i64(local_tmp1_i64, cpu_tmp1_i64);
+
+#define RESTORE_TEMPS() \
+    tcg_gen_mov_tl(cpu_T[0], local_T[0]); \
+    tcg_gen_mov_tl(cpu_T[1], local_T[1]); \
+    tcg_gen_mov_tl(cpu_T3, local_T3); \
+    tcg_gen_mov_tl(cpu_tmp0, local_tmp0); \
+    tcg_gen_mov_tl(cpu_tmp4, local_tmp4); \
+    tcg_gen_mov_tl(cpu_tmp5, local_tmp5); \
+    tcg_gen_mov_tl(cpu_ptr0, local_ptr0); \
+    tcg_gen_mov_tl(cpu_ptr1, local_ptr1); \
+    tcg_gen_mov_tl(cpu_tmp2_i32, local_tmp2_i32); \
+    tcg_gen_mov_tl(cpu_tmp3_i32, local_tmp3_i32); \
+    tcg_gen_mov_tl(cpu_tmp1_i64, local_tmp1_i64); \
+    tcg_temp_free(local_T[0]); \
+    tcg_temp_free(local_T[1]); \
+    tcg_temp_free(local_T3); \
+    tcg_temp_free(local_tmp0); \
+    tcg_temp_free(local_tmp4); \
+    tcg_temp_free(local_tmp5); \
+    tcg_temp_free(local_ptr0); \
+    tcg_temp_free(local_ptr1); \
+    tcg_temp_free(local_tmp2_i32); \
+    tcg_temp_free(local_tmp3_i32); \
+    tcg_temp_free(local_tmp1_i64);
+
 static void wrap_memop_v(int idx, TCGv t0, TCGv a0, 
         void (*opfn)(int, TCGv, TCGv),
         void (*altfn)(TCGv, TCGv_ptr, TCGv, TCGv))
@@ -557,8 +633,9 @@ static void wrap_memop_v(int idx, TCGv t0, TCGv a0,
         int ldone;
         int ltxn;
 
-        TCGv t0_l, a0_l, ut;
+        TCGv t0_l, a0_l;
         TCGv tmp;
+        DEF_LTEMPS();
 
         ltxn = gen_new_label();
         ldone = gen_new_label();
@@ -566,19 +643,13 @@ static void wrap_memop_v(int idx, TCGv t0, TCGv a0,
         /* need locals or we lose value after branch (very bad) */
         t0_l = tcg_temp_local_new();
         a0_l = tcg_temp_local_new();
-        ut = tcg_temp_local_new();
         tmp = tcg_temp_new();
+
+        LOCALIZE_TEMPS(); /* don't clobber temps */
 
         tcg_gen_mov_tl(t0_l, t0);
         tcg_gen_mov_tl(a0_l, a0);
 
-        /* Save other temp reg if necessary 
-           (this is a bit of a hack) */ 
-        if(t0 == cpu_T[0])
-            tcg_gen_mov_tl(ut, cpu_T[1]);
-        if(t0 == cpu_T[1])
-            tcg_gen_mov_tl(ut, cpu_T[0]);
-        
         tcg_gen_ld_tl(tmp, cpu_env, offsetof(CPUX86State, rtm_active));
 
         tcg_gen_brcondi_tl(TCG_COND_NE, tmp, 0, ltxn);
@@ -595,19 +666,15 @@ static void wrap_memop_v(int idx, TCGv t0, TCGv a0,
 
         gen_set_label(ldone);
         /* done */
+
+        RESTORE_TEMPS(); /* restore temps to local values */
+
         tcg_gen_mov_tl(t0, t0_l); /* copy local back to input temp */
         tcg_gen_mov_tl(a0, a0_l);
         
-        /* hack to restore other temp reg */
-        if(t0 == cpu_T[0])
-            tcg_gen_mov_tl(cpu_T[1], ut);
-        if(t0 == cpu_T[1])
-            tcg_gen_mov_tl(cpu_T[0], ut);
-
         tcg_temp_free(tmp);
         tcg_temp_free(t0_l);
         tcg_temp_free(a0_l);
-        tcg_temp_free(ut);
     }
     else
         opfn(idx, t0, a0);

@@ -278,6 +278,12 @@ target_ulong HELPER(xmem_read)(CPUX86State *env, int32_t idx, target_ulong a0)
     return data;
 }
 
+target_ulong HELPER(xmem_write)(CPUX86State *env, int32_t idx, target_ulong a0)
+{
+
+    return 0u;
+}
+
 
 void HELPER(debug_val)(target_ulong val)
 {
