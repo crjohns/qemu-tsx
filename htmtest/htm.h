@@ -7,12 +7,12 @@ static int xtest()
 {
     register int ret;
     asm volatile(".byte 0x0f, 0x01, 0xd6\n\t"
-                 "je not_found\n\t"
+                 "je 1f\n\t"
                  "movl $0x1, %0\n\t"
-                 "jmp end\n\t"
-                 "not_found:;\n\t"
+                 "jmp 2f\n\t"
+                 "1:;\n\t"
                  "movl $0x0, %0\n\t"
-                 "end:;\n\t": "=a"(ret) : );
+                 "2:;\n\t": "=a"(ret) : );
 
     return ret;
 }
