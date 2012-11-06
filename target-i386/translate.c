@@ -2841,10 +2841,8 @@ static inline void gen_ldq_env_A0(int idx, int offset)
 
 static inline void gen_stq_env_A0(int idx, int offset)
 {
-    int mem_index = (idx >> 2) - 1;
-    WARN_NOTXN();
     tcg_gen_ld_i64(cpu_tmp1_i64, cpu_env, offset);
-    tcg_gen_qemu_st64(cpu_tmp1_i64, cpu_A0, mem_index);
+    wrap_write_v(idx | OT_QUAD, cpu_tmp1_i64, cpu_A0);
 }
 
 static inline void gen_ldo_env_A0(int idx, int offset)
@@ -2858,13 +2856,11 @@ static inline void gen_ldo_env_A0(int idx, int offset)
 
 static inline void gen_sto_env_A0(int idx, int offset)
 {
-    int mem_index = (idx >> 2) - 1;
-    WARN_NOTXN();
     tcg_gen_ld_i64(cpu_tmp1_i64, cpu_env, offset + offsetof(XMMReg, XMM_Q(0)));
-    tcg_gen_qemu_st64(cpu_tmp1_i64, cpu_A0, mem_index);
+    wrap_write_v(idx | OT_QUAD, cpu_tmp1_i64, cpu_A0);
     tcg_gen_addi_tl(cpu_tmp0, cpu_A0, 8);
     tcg_gen_ld_i64(cpu_tmp1_i64, cpu_env, offset + offsetof(XMMReg, XMM_Q(1)));
-    tcg_gen_qemu_st64(cpu_tmp1_i64, cpu_tmp0, mem_index);
+    wrap_write_v(idx | OT_QUAD, cpu_tmp1_i64, cpu_tmp0);
 }
 
 static inline void gen_op_movo(int d_offset, int s_offset)
