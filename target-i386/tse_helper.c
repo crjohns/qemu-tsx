@@ -273,9 +273,43 @@ target_ulong HELPER(xmem_read)(CPUX86State *env, int32_t idx, target_ulong a0)
             break;
     }
 
-    fprintf(stderr, "Got 0x%lx at %p (index %d)\n", data, (void*)a0, idx);
+    //fprintf(stderr, "Got 0x%lx at %p (index %d)\n", data, (void*)a0, idx);
 
     return data;
+}
+
+target_ulong HELPER(xmem_read_s)(CPUX86State *env, int32_t idx, target_ulong a0)
+{
+    target_ulong value = helper_xmem_read(env, idx, a0);
+
+    target_ulong mask;
+    target_ulong sign;
+
+    switch(idx & 3)
+    {
+        case 0:
+            mask = 0xFF;
+            sign = 0x80;
+            break;
+        case 1:
+            mask = 0xFFFF;
+            sign = 0x8000;
+            break;
+        case 2:
+            mask = 0xFFFFFFFF;
+            sign = 0x80000000;
+            break;
+        default:
+            mask = ~0;
+            sign = 0;
+            break;
+    }
+
+    value &= mask;
+    if(value & sign)
+        value |= ~mask;
+
+    return value;
 }
 
 target_ulong HELPER(xmem_write)(CPUX86State *env, int32_t idx, target_ulong a0)
