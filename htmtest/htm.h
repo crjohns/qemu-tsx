@@ -63,6 +63,7 @@ static unsigned int xbegin()
                  "2:\n\t"
                  : "=r"(ret) : : "%eax");
 
+#if 0
     fprintf(stderr, "ret is 0x%x\n", ret);
 
 
@@ -79,9 +80,7 @@ static unsigned int xbegin()
                  : "=m"(v1),"=m"(v2),"=m"(v3),"=m"(v4),"=m"(v5) : : "%rax");
 
     fprintf(stderr, "[ip %x] rsp %llx, s0 %llx, s1 %llx, s2 %llx\n", v5, v1, v2, v3, v4);
-
-    if(ret)
-        exit(1);
+#endif
 
     return ret;
 }
@@ -94,7 +93,7 @@ static void xend()
 
 
 /* defined as macro since xabort required encoded immediate */
-#define xabort(imm) asm(".byte 0xc6, 0xf8, " #imm "\n\t"\
+#define xabort(imm) asm volatile(".byte 0xc6, 0xf8, " #imm "\n\t"\
                         "nop;nop;nop;nop;nop;nop;nop;nop;\n\t"); /* nop slide for clean disasm */
 
 #endif
