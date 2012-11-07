@@ -93,7 +93,7 @@ static void xend()
 
 
 /* defined as macro since xabort required encoded immediate */
-#define xabort(imm) asm volatile(".byte 0xc6, 0xf8, " #imm "\n\t"\
-                        "nop;nop;nop;nop;nop;nop;nop;nop;\n\t"); /* nop slide for clean disasm */
+#define xabort(imm) { asm volatile(".byte 0xc6, 0xf8, " #imm "\n\t"\
+                        "nop;nop;nop;nop;nop;nop;nop;nop;\n\t"); } /* nop slide for clean disasm */
 
 #endif

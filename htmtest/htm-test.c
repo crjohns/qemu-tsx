@@ -2,6 +2,12 @@
 #include "htm.h"
 
 
+int testfn()
+{
+    asm volatile("nop");
+    return 4;
+}
+
 int main()
 {
     fprintf(stderr, "htm test\n");
@@ -32,9 +38,21 @@ int main()
         //else
         //    fprintf(stderr, "Not in txn\n");
         
-        *temp += 100;
 
-        xabort(2);
+        // This introduces a bug with stack handling?
+        // int val = testfn();
+        
+        *temp += 100;
+        
+        if(*temp == 105)
+        {
+            xabort(3);
+        }
+        else
+        {
+            xabort(2);
+        }
+
         xend();
         fprintf(stderr, "TXN Ended\n");
     }
