@@ -22,7 +22,7 @@ int main()
     elock_release(&lock);
     printf("Did lock test\n");
 
-    int *temp = (int*) malloc(sizeof(int));
+    int volatile *temp = (int volatile *) malloc(sizeof(int));
 
     *temp = 5;
 
@@ -63,7 +63,7 @@ int main()
 
     fprintf(stderr, "Temporary value is %x\n", *temp);
 
-    free(temp);
+    free((void*)temp);
 
     return 0;
 }
