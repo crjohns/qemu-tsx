@@ -130,14 +130,33 @@ static void wrap_memop_v(int idx, TCGv t0, TCGv a0,
         if(altfn)
         {
             altfn(t0_l, cpu_env, tmp, a0_l);
-            //tcg_gen_movi_tl(tmp, 0);
-            //gen_helper_debug_val(tmp, t0_l);
-        }
-        opfn(idx, t0_l, a0_l);
-        if(altfn)
-        {
-            //tcg_gen_movi_tl(tmp, 1);
-            //gen_helper_debug_val(tmp, t0_l);
+
+#ifdef DEBUG_READWRITE
+            if(altfn != gen_helper_xmem_write)
+            {
+                TCGv tmp2;
+
+
+                tmp2 = tcg_temp_new();
+                opfn(idx, tmp2, a0_l);
+
+                tcg_gen_movi_tl(tmp, 2);
+                gen_helper_debug_val(tmp, a0_l);
+
+                tcg_gen_movi_tl(tmp, 0);
+                gen_helper_debug_val(tmp, t0_l);
+                tcg_gen_movi_tl(tmp, 1);
+                gen_helper_debug_val(tmp, tmp2);
+                tcg_temp_free(tmp2);
+            }
+            else
+            {
+                tcg_gen_movi_tl(tmp, 2);
+                gen_helper_debug_val(tmp, a0_l);
+                tcg_gen_movi_tl(tmp, 3);
+                gen_helper_debug_val(tmp, t0_l);
+            }
+#endif
         }
 
         gen_set_label(ldone);

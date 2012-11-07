@@ -148,7 +148,7 @@ static TSE_RTM_Buffer *alloc_rtm_buf(CPUX86State *env)
         return NULL;
 }
 
-/* do all buffer reads at the byte level to dead with unaligned reads */
+/* do all buffer reads at the byte level to deal with unaligned reads */
 static int do_txn_buf_read_byte(target_ulong *out_data, CPUX86State *env, 
         target_ulong a0)
 {
@@ -216,7 +216,7 @@ static target_ulong do_read_b(CPUX86State *env, target_ulong a0)
         do_txn_buf_write_byte(data & 0xFF, env, a0);
     }
 
-    return data;
+    return data & 0xff;
 }
 
 static target_ulong do_read_w(CPUX86State *env, target_ulong a0)
@@ -225,7 +225,7 @@ static target_ulong do_read_w(CPUX86State *env, target_ulong a0)
 
     data = do_read_b(env, a0);
     data |= (do_read_b(env, a0+1) << 8);
-
+    
     return data;
 }
 
@@ -235,6 +235,7 @@ static target_ulong do_read_l(CPUX86State *env, target_ulong a0)
 
     data = do_read_w(env, a0);
     data |= (do_read_w(env, a0+2) << 16);
+    
     return data;
 }
 
@@ -246,7 +247,7 @@ static target_ulong do_read_q(CPUX86State *env, target_ulong a0)
     data = do_read_l(env, a0);
     data |= (do_read_l(env, a0+4) << 32);
 #endif
-
+    
     return data;
 }
 
