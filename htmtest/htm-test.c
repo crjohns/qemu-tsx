@@ -16,6 +16,10 @@ int main()
     elock_release(&lock);
     printf("Did lock test\n");
 
+    int *temp = (int*) malloc(sizeof(int));
+
+    *temp = 5;
+
 
     fprintf(stderr, "Do TXN test\n");
     int reason;
@@ -27,17 +31,21 @@ int main()
         //    fprintf(stderr, "In txn\n");
         //else
         //    fprintf(stderr, "Not in txn\n");
+        
+        *temp += 100;
 
         xabort(2);
         xend();
+        fprintf(stderr, "TXN Ended\n");
     }
     else
     {
         fprintf(stderr, "TXN aborted, code %x\n", reason);
-        return 0;
     }
 
-    fprintf(stderr, "TXN Ended\n");
+    fprintf(stderr, "Temporary value is %x\n", *temp);
+
+    free(temp);
 
     return 0;
 }
