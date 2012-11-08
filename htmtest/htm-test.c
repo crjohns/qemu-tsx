@@ -1,10 +1,12 @@
 #include <stdio.h>
+#include <string.h>
 #include "htm.h"
 
 
 int testfn()
 {
-    asm volatile("nop");
+    int value;
+    asm volatile("mov $1, %0" : "=r"(value));
     return 4;
 }
 
@@ -17,7 +19,7 @@ int main()
     else
         fprintf(stderr, "Not in txn\n");
 
-    int lock;
+    int lock = 0;
     elock_acquire(&lock);
     elock_release(&lock);
     printf("Did lock test\n");
@@ -28,19 +30,18 @@ int main()
 
 
     fprintf(stderr, "Do TXN test\n");
+
     int reason;
     reason = xbegin();
-    //fprintf(stderr, "reason is 0x%x\n", reason);
     if(reason == 0)
     {
-        //if(xtest())
-        //    fprintf(stderr, "In txn\n");
-        //else
-        //    fprintf(stderr, "Not in txn\n");
-        
+        if(xtest())
+            fprintf(stderr, "In txn\n");
+        else
+            fprintf(stderr, "Not in txn\n");
 
-        // This introduces a bug with stack handling?
-        // int val = testfn();
+
+        int val = testfn();
         
         *temp += 100;
         
