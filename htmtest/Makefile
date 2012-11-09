@@ -8,6 +8,8 @@ QEMU_SYSTEM = $(QEMU_INSTALL)/bin/qemu-system-x86_64
 QEMU_FLAGS = 
 QEMU_CPU ?= Haswell
 
+QEMU_CONFIGURE_FLAGS = "--target-list=x86_64-softmmu,x86_64-linux-user"
+
 CFLAGS = -g
  
 TESTS := sse-test htm-test
@@ -43,6 +45,6 @@ build-qemu: $(QEMU_BUILD)/qemu-configured
 $(QEMU_BUILD)/qemu-configured: 
 	mkdir -p $(QEMU_BUILD)
 	cd $(QEMU_BUILD); \
-		$(QEMU_SRC)/configure --target-list=x86_64-softmmu,x86_64-linux-user --prefix=$(QEMU_INSTALL)
+		$(QEMU_SRC)/configure $(QEMU_CONFIGURE_FLAGS) --prefix=$(QEMU_INSTALL)
 	touch $(QEMU_BUILD)/qemu-configured
 
