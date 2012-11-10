@@ -8,7 +8,7 @@ QEMU_SYSTEM = $(QEMU_INSTALL)/bin/qemu-system-x86_64
 QEMU_FLAGS = 
 QEMU_CPU ?= Haswell
 
-QEMU_CONFIGURE_FLAGS = "--target-list=x86_64-softmmu,x86_64-linux-user"
+QEMU_CONFIGURE_FLAGS = --target-list=x86_64-softmmu,x86_64-linux-user
 
 CFLAGS = -g
  
