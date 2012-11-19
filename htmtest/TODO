@@ -1,5 +1,9 @@
 TODO List for HTM:
 
-Use the general wrapper function to wrap stores.
-One difficulty is that a lot of the code seems to use the old register indices,
-this needs to be dealt with.
+Figure out threading 
+Figure out multi cpu using xv6
+
+Maybe check for Haswell bits when the temps are created in translate.c and
+use local_temp_new instead. Then add frees and news to the disas loop.
+This will make things slower, but it will be correct, and it will fit
+more readily into a generic memory instrumentation solution.
