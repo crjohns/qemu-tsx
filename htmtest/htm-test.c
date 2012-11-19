@@ -61,8 +61,23 @@ int main()
     {
         fprintf(stderr, "TXN aborted, code %x\n", reason);
     }
-
+    
     fprintf(stderr, "Temporary value is %x\n", *temp);
+
+    reason = xbegin();
+    if(reason == 0)
+    {
+        int val = testfn();
+        *temp  += 100;
+        xend();
+    }
+    else
+    {
+        fprintf(stderr, "ERROR: Correct txn aborted\n");
+    }
+
+
+    fprintf(stderr, "Temporary value is %d\n", *temp);
 
     free((void*)temp);
 

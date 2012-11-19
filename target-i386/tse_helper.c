@@ -82,6 +82,26 @@ static void txn_abort_processing(CPUX86State *env, uint32_t set_eax)
     env->regs[R_EAX] = set_eax;
 }
 
+static void txn_commit(CPUX86State *env)
+{
+    int i;
+
+    // Flush cached transaction lines
+    for(i=0; i<env->rtm_active_buffer_count; i++)
+    {
+        int j;
+        target_ulong linestart = env->rtm_buffers[i].tag << TSE_LOG_CACHE_LINE_SIZE;
+        for(j = 0; j < (1u << TSE_LOG_CACHE_LINE_SIZE); j++)
+        {
+            cpu_stb_data(env, linestart + j, env->rtm_buffers[i].data[j]);
+        }
+    }
+
+    // Clear buffer count, disable RTM
+    env->rtm_active_buffer_count = 0;
+    env->rtm_active = 0;
+}
+
 void HELPER(xbegin)(CPUX86State *env, target_ulong destpc, int32_t dflag)
 {
     if(env->rtm_nest_count < MAX_RTM_NEST_COUNT)
@@ -105,6 +125,20 @@ void HELPER(xbegin)(CPUX86State *env, target_ulong destpc, int32_t dflag)
 
 void HELPER(xend)(CPUX86State *env)
 {
+    if(!env->rtm_active)
+    {
+        // Error, invalid
+        // TODO: Add exception here
+        return;
+    }
+
+    env->rtm_nest_count -= 1;
+
+    if(env->rtm_nest_count == 0)
+    {
+        txn_commit(env);
+    }
+
 }
 
 void HELPER(xabort)(CPUX86State *env, uint32_t reason)

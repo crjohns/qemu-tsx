@@ -7267,6 +7267,18 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
 
             break;
         }
+        else if(modrm == 0xd5) { /* xend - Intel TSE */
+            if(!(s->cpuid_7_0_ebx_features & 
+                        (CPUID_7_0_EBX_RTM)))
+                goto illegal_op;
+
+            if(prefixes & (PREFIX_LOCK | PREFIX_REPZ | PREFIX_REPNZ | PREFIX_DATA))
+                goto illegal_op;
+
+            gen_helper_xend(cpu_env);
+
+            break;
+        }
 
         switch(op) {
         case 0: /* sgdt */
