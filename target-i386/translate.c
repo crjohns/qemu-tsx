@@ -8063,19 +8063,22 @@ static inline void gen_intermediate_code_internal(CPUX86State *env,
         printf("ERROR addseg\n");
 #endif
 
-    cpu_T[0] = tcg_temp_new();
-    cpu_T[1] = tcg_temp_new();
-    cpu_A0 = tcg_temp_new();
-    cpu_T3 = tcg_temp_new();
+    if(!(env->cpuid_7_0_ebx_features & (CPUID_7_0_EBX_RTM | CPUID_7_0_EBX_HLE)))
+    {
+        cpu_T[0] = tcg_temp_new();
+        cpu_T[1] = tcg_temp_new();
+        cpu_A0 = tcg_temp_new();
+        cpu_T3 = tcg_temp_new();
 
-    cpu_tmp0 = tcg_temp_new();
-    cpu_tmp1_i64 = tcg_temp_new_i64();
-    cpu_tmp2_i32 = tcg_temp_new_i32();
-    cpu_tmp3_i32 = tcg_temp_new_i32();
-    cpu_tmp4 = tcg_temp_new();
-    cpu_tmp5 = tcg_temp_new();
-    cpu_ptr0 = tcg_temp_new_ptr();
-    cpu_ptr1 = tcg_temp_new_ptr();
+        cpu_tmp0 = tcg_temp_new();
+        cpu_tmp1_i64 = tcg_temp_new_i64();
+        cpu_tmp2_i32 = tcg_temp_new_i32();
+        cpu_tmp3_i32 = tcg_temp_new_i32();
+        cpu_tmp4 = tcg_temp_new();
+        cpu_tmp5 = tcg_temp_new();
+        cpu_ptr0 = tcg_temp_new_ptr();
+        cpu_ptr1 = tcg_temp_new_ptr();
+    }
 
     gen_opc_end = gen_opc_buf + OPC_MAX_SIZE;
 
@@ -8113,7 +8116,45 @@ static inline void gen_intermediate_code_internal(CPUX86State *env,
         if (num_insns + 1 == max_insns && (tb->cflags & CF_LAST_IO))
             gen_io_start();
 
+        
+        
+        
+        if(env->cpuid_7_0_ebx_features & (CPUID_7_0_EBX_RTM | CPUID_7_0_EBX_HLE))
+        {
+            cpu_T[0] = tcg_temp_local_new();
+            cpu_T[1] = tcg_temp_local_new();
+            cpu_A0 = tcg_temp_local_new();
+            cpu_T3 = tcg_temp_local_new();
+
+            cpu_tmp0 = tcg_temp_local_new();
+            cpu_tmp1_i64 = tcg_temp_local_new_i64();
+            cpu_tmp2_i32 = tcg_temp_local_new_i32();
+            cpu_tmp3_i32 = tcg_temp_local_new_i32();
+            cpu_tmp4 = tcg_temp_local_new();
+            cpu_tmp5 = tcg_temp_local_new();
+            cpu_ptr0 = TCGV_NAT_TO_PTR(tcg_temp_local_new());
+            cpu_ptr1 = TCGV_NAT_TO_PTR(tcg_temp_local_new());
+        }
+
         pc_ptr = disas_insn(dc, pc_ptr);
+
+        if(env->cpuid_7_0_ebx_features & (CPUID_7_0_EBX_RTM | CPUID_7_0_EBX_HLE))
+        {
+            tcg_temp_free(cpu_T[0]);
+            tcg_temp_free(cpu_T[1]);
+            tcg_temp_free(cpu_A0);
+            tcg_temp_free(cpu_T3);
+            tcg_temp_free(cpu_tmp0);
+            tcg_temp_free(cpu_tmp1_i64);
+            tcg_temp_free(cpu_tmp2_i32);
+            tcg_temp_free(cpu_tmp3_i32);
+            tcg_temp_free(cpu_tmp4);
+            tcg_temp_free(cpu_tmp5);
+            tcg_temp_free(cpu_ptr0);
+            tcg_temp_free(cpu_ptr1);
+        }
+
+
         num_insns++;
         /* stop translation if indicated */
         if (dc->is_jmp)
