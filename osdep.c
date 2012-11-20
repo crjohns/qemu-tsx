@@ -134,6 +134,11 @@ fail:
     errno = serrno;
     return -1;
 }
+
+static int qemu_parse_fdset(const char *param)
+{
+    return qemu_parse_fd(param);
+}
 #endif
 
 /*
@@ -394,3 +399,4 @@ bool fips_get_state(void)
 {
     return fips_enabled;
 }
+

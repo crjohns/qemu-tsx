@@ -38,6 +38,7 @@
 #define USB_TOKEN_IN    0x69 /* device -> host */
 #define USB_TOKEN_OUT   0xe1 /* host -> device */
 
+#define USB_RET_SUCCESS           (0)
 #define USB_RET_NODEV             (-1)
 #define USB_RET_NAK               (-2)
 #define USB_RET_STALL             (-3)
@@ -160,6 +161,7 @@ typedef struct USBBusOps USBBusOps;
 typedef struct USBPort USBPort;
 typedef struct USBDevice USBDevice;
 typedef struct USBPacket USBPacket;
+typedef struct USBCombinedPacket USBCombinedPacket;
 typedef struct USBEndpoint USBEndpoint;
 
 typedef struct USBDesc USBDesc;
@@ -279,18 +281,20 @@ typedef struct USBDeviceClass {
      * Process control request.
      * Called from handle_packet().
      *
-     * Returns length or one of the USB_RET_ codes.
+     * Status gets stored in p->status, and if p->status == USB_RET_SUCCESS
+     * then the number of bytes transfered is stored in p->actual_length
      */
-    int (*handle_control)(USBDevice *dev, USBPacket *p, int request, int value,
-                          int index, int length, uint8_t *data);
+    void (*handle_control)(USBDevice *dev, USBPacket *p, int request, int value,
+                           int index, int length, uint8_t *data);
 
     /*
      * Process data transfers (both BULK and ISOC).
      * Called from handle_packet().
      *
-     * Returns length or one of the USB_RET_ codes.
+     * Status gets stored in p->status, and if p->status == USB_RET_SUCCESS
+     * then the number of bytes transfered is stored in p->actual_length
      */
-    int (*handle_data)(USBDevice *dev, USBPacket *p);
+    void (*handle_data)(USBDevice *dev, USBPacket *p);
 
     void (*set_interface)(USBDevice *dev, int interface,
                           int alt_old, int alt_new);
@@ -353,10 +357,19 @@ struct USBPacket {
     uint64_t parameter; /* control transfers */
     bool short_not_ok;
     bool int_req;
-    int result; /* transfer length or USB_RET_* status code */
+    int status; /* USB_RET_* status code */
+    int actual_length; /* Number of bytes actually transfered */
     /* Internal use by the USB layer.  */
     USBPacketState state;
+    USBCombinedPacket *combined;
     QTAILQ_ENTRY(USBPacket) queue;
+    QTAILQ_ENTRY(USBPacket) combined_entry;
+};
+
+struct USBCombinedPacket {
+    USBPacket *first;
+    QTAILQ_HEAD(packets_head, USBPacket) packets;
+    QEMUIOVector iov;
 };
 
 void usb_packet_init(USBPacket *p);
@@ -379,7 +392,7 @@ static inline bool usb_packet_is_inflight(USBPacket *p)
 
 USBDevice *usb_find_device(USBPort *port, uint8_t addr);
 
-int usb_handle_packet(USBDevice *dev, USBPacket *p);
+void usb_handle_packet(USBDevice *dev, USBPacket *p);
 void usb_packet_complete(USBDevice *dev, USBPacket *p);
 void usb_packet_complete_one(USBDevice *dev, USBPacket *p);
 void usb_cancel_packet(USBPacket * p);
@@ -398,6 +411,10 @@ int usb_ep_get_max_packet_size(USBDevice *dev, int pid, int ep);
 void usb_ep_set_pipeline(USBDevice *dev, int pid, int ep, bool enabled);
 USBPacket *usb_ep_find_packet_by_id(USBDevice *dev, int pid, int ep,
                                     uint64_t id);
+
+void usb_ep_combine_input_packets(USBEndpoint *ep);
+void usb_combined_input_packet_complete(USBDevice *dev, USBPacket *p);
+void usb_combined_packet_cancel(USBDevice *dev, USBPacket *p);
 
 void usb_attach(USBPort *port);
 void usb_detach(USBPort *port);
@@ -510,10 +527,10 @@ void usb_device_handle_attach(USBDevice *dev);
 
 void usb_device_handle_reset(USBDevice *dev);
 
-int usb_device_handle_control(USBDevice *dev, USBPacket *p, int request, int value,
-                              int index, int length, uint8_t *data);
+void usb_device_handle_control(USBDevice *dev, USBPacket *p, int request,
+                               int val, int index, int length, uint8_t *data);
 
-int usb_device_handle_data(USBDevice *dev, USBPacket *p);
+void usb_device_handle_data(USBDevice *dev, USBPacket *p);
 
 void usb_device_set_interface(USBDevice *dev, int interface,
                               int alt_old, int alt_new);
@@ -523,6 +540,8 @@ void usb_device_flush_ep_queue(USBDevice *dev, USBEndpoint *ep);
 const char *usb_device_get_product_desc(USBDevice *dev);
 
 const USBDesc *usb_device_get_usb_desc(USBDevice *dev);
+
+int ehci_create_ich9_with_companions(PCIBus *bus, int slot);
 
 #endif
 

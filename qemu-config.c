@@ -114,6 +114,10 @@ static QemuOptsList qemu_drive_opts = {
             .name = "copy-on-read",
             .type = QEMU_OPT_BOOL,
             .help = "copy read data from backing file into image file",
+        },{
+            .name = "boot",
+            .type = QEMU_OPT_BOOL,
+            .help = "(deprecated, ignored)",
         },
         { /* end of list */ }
     },
@@ -678,6 +682,15 @@ static QemuOptsList qemu_add_fd_opts = {
     },
 };
 
+static QemuOptsList qemu_object_opts = {
+    .name = "object",
+    .implied_opt_name = "qom-type",
+    .head = QTAILQ_HEAD_INITIALIZER(qemu_object_opts.head),
+    .desc = {
+        { }
+    },
+};
+
 static QemuOptsList *vm_config_groups[32] = {
     &qemu_drive_opts,
     &qemu_chardev_opts,
@@ -695,6 +708,7 @@ static QemuOptsList *vm_config_groups[32] = {
     &qemu_iscsi_opts,
     &qemu_sandbox_opts,
     &qemu_add_fd_opts,
+    &qemu_object_opts,
     NULL,
 };
 
