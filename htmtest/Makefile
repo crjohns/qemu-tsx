@@ -39,10 +39,12 @@ test: install-qemu $(TESTS) $(foreach test, $(TESTS), $(test)-test)
 install-qemu: build-qemu
 	make -C $(QEMU_BUILD) install
 
-build-qemu: $(QEMU_BUILD)/qemu-configured
+build-qemu: configure-qemu
 	make -C $(QEMU_BUILD) -j$(QEMU_BUILD_JOBS)
 
-$(QEMU_BUILD)/qemu-configured: 
+configure-qemu: $(QEMU_BUILD)/qemu-configured
+
+$(QEMU_BUILD)/qemu-configured: $(QEMU_SRC)/configure
 	mkdir -p $(QEMU_BUILD)
 	cd $(QEMU_BUILD); \
 		$(QEMU_SRC)/configure $(QEMU_CONFIGURE_FLAGS) --prefix=$(QEMU_INSTALL)
