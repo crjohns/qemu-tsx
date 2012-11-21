@@ -1,9 +1,6 @@
 TODO List for HTM:
 
-Figure out threading 
-Figure out multi cpu using xv6
+Threading will not work as it is unimplemented for x86 targets.
 
-Maybe check for Haswell bits when the temps are created in translate.c and
-use local_temp_new instead. Then add frees and news to the disas loop.
-This will make things slower, but it will be correct, and it will fit
-more readily into a generic memory instrumentation solution.
+Multicpu has an issue with not switching between cores fast enough,
+I need to make this more frequent to test.
