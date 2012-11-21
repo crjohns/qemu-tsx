@@ -1,8 +1,10 @@
 #ifndef HTM_H
 #define HTM_H
 
-#include <stdlib.h>
+//#include <stdlib.h>
 
+
+__attribute__ ((unused))
 static int xtest()
 {
     register int ret;
@@ -17,6 +19,7 @@ static int xtest()
     return ret;
 }
 
+__attribute__ ((unused))
 static void elock_acquire(int *lock)
 {
     asm volatile("xorl %%ecx, %%ecx\n\t"
@@ -32,6 +35,7 @@ static void elock_acquire(int *lock)
                  : : "m" (*lock) : "%eax", "%ecx");
 }
 
+__attribute__ ((unused))
 static void elock_release(int *lock)
 {
     asm volatile("xorl %%ecx, %%ecx\n\t"
@@ -50,10 +54,11 @@ static void elock_release(int *lock)
 
 #define XBEGIN_OP(jmp) ".byte 0xc7, 0xf8; " ".long " #jmp "\n\t"
 
+__attribute__ ((unused))
 static unsigned int xbegin()
 {
     register unsigned int ret;
-    unsigned long long int v1, v2, v3, v4, v5;
+//    unsigned long long int v1, v2, v3, v4, v5;
     asm volatile(XBEGIN_OP(2)
                  "jmp 1f\n\t" /* TXM abort skips this instruction */
                  "movl %%eax, %0\n\t" /* TXN abort, return error */
@@ -86,6 +91,7 @@ static unsigned int xbegin()
 }
 
 #define XEND_OP ".byte 0x0f, 0x01, 0xd5\n\t"
+__attribute__ ((unused))
 static void xend()
 {
     asm volatile(XEND_OP);
