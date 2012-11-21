@@ -128,7 +128,8 @@ void HELPER(xend)(CPUX86State *env)
     if(!env->rtm_active)
     {
         // Error, invalid
-        // TODO: Add exception here
+        fprintf(stderr, "error, invalid\n");
+        raise_exception(env, EXCP0D_GPF);
         return;
     }
 
