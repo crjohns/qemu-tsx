@@ -449,6 +449,8 @@ void cpu_loop(CPUX86State *env)
                   }
             }
             break;
+        case EXCP_RTMSTEP:
+            break;
         default:
             pc = env->segs[R_CS].base + env->eip;
             fprintf(stderr, "qemu: 0x%08lx: unhandled CPU exception 0x%x - aborting\n",

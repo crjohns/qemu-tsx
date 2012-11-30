@@ -242,6 +242,9 @@ int cpu_exec(CPUArchState *env)
                     if (ret == EXCP_DEBUG) {
                         cpu_handle_debug_exception(env);
                     }
+                    if (ret == EXCP_RTMSTEP) {
+                        fprintf(stderr, "breaking cpu loop (%p)\n", env);
+                    }
                     break;
                 } else {
 #if defined(CONFIG_USER_ONLY)
@@ -596,6 +599,18 @@ int cpu_exec(CPUArchState *env)
                 if (likely(!env->exit_request)) {
                     tc_ptr = tb->tc_ptr;
                     /* execute the generated code */
+#if defined(TARGET_X86_64) || defined(TARGET_I386)
+                    if (env->rtm_active)
+                    {
+                        //fprintf(stderr, "Translating tb %p in rtm mode (cpu %p)\n", tb, env);
+
+                        cpu_exec_nocache(env, 1, tb);
+
+                        env->exception_index = EXCP_RTMSTEP;
+                        next_tb = 0;
+                        cpu_loop_exit(env);
+                    }
+#endif
                     next_tb = tcg_qemu_tb_exec(env, tc_ptr);
                     if ((next_tb & 3) == 2) {
                         /* Instruction counter expired.  */
