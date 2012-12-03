@@ -243,7 +243,7 @@ int cpu_exec(CPUArchState *env)
                         cpu_handle_debug_exception(env);
                     }
                     if (ret == EXCP_RTMSTEP) {
-                        fprintf(stderr, "breaking cpu loop (%p)\n", env);
+                        //fprintf(stderr, "breaking cpu loop (%p)\n", env);
                     }
                     break;
                 } else {

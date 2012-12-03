@@ -1,6 +1,9 @@
 #ifndef TSE_H
 #define TSE_H
 
+
+#define RTM_DEBUG 1
+
 #define MAX_RTM_NEST_COUNT 128  /* max number of nested txns */
 #define NUM_RTM_BUFFERS 1024     /* max number of cache lines in txn */
 
