@@ -1,6 +1,4 @@
 TODO List for HTM:
 
-Threading will not work as it is unimplemented for x86 targets.
-
-Multicpu has an issue with not switching between cores fast enough,
-I need to make this more frequent to test.
+Implement correct conflict resolution, currently more pessimistic than 
+what is implied from the Intel docs.
