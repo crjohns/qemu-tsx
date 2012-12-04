@@ -863,6 +863,8 @@ typedef struct CPUX86State {
     target_ulong rtm_active_buffer_count;
     TSE_RTM_Buffer rtm_buffers[NUM_RTM_BUFFERS];
 
+    target_ulong rtm_conflict_count;
+
 
     /* HLE state */
     uint32_t hle_nest_count;

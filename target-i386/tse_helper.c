@@ -128,6 +128,11 @@ static void txn_commit(CPUX86State *env)
     // Clear buffer count, disable RTM
     env->rtm_active_buffer_count = 0;
     env->rtm_active = 0;
+
+#if RTM_DEBUG
+    fprintf(stderr, "CPU %d had %lu conflicts so far\n", env->cpu_index, env->rtm_conflict_count);
+#endif
+
 }
 
 void HELPER(xbegin)(CPUX86State *env, target_ulong destpc, int32_t dflag)
@@ -211,39 +216,87 @@ static TSE_RTM_Buffer *alloc_rtm_buf(CPUX86State *env)
         return NULL;
 }
 
+
+/*
+ * Execute body for each cache line in a cpu other than that given by "env"
+ * The cache line will be in TSE_RTM_Buffer *var, and its associated cpu
+ * will be in CPUX86State *current
+ */
+#define FOREACH_OTHER_TXN(env, current, var, body) \
+{ \
+    CPUX86State *current; \
+    for(current = first_cpu; current != NULL; current = current->next_cpu)  \
+    { \
+        if(current == env) continue; \
+        if(current->rtm_active) \
+        { \
+            int tctr; \
+            for(tctr = 0; tctr < current->rtm_active_buffer_count; tctr++) \
+            { \
+                TSE_RTM_Buffer *var = &current->rtm_buffers[tctr]; \
+                { body } \
+            } \
+        } \
+    } \
+}
+
+
 /* detect if another cpu already accessed the line, and abort if they have 
  * This is essentially FCFS conflict resolution */
 static int detect_conflict_pessimistic(CPUX86State *env, TSE_RTM_Buffer *rtmbuf)
 {
-    CPUX86State *current;
-    for(current = first_cpu; current != NULL; current = current->next_cpu)
-    {
-        /* ignore this cpu */
-        if(current == env)
-            continue;
 
-        if(current->rtm_active)
+    FOREACH_OTHER_TXN(env, current, ctxn, 
+        if(ctxn->tag == rtmbuf->tag)
         {
-            int i;
-            for(i = 0; i < current->rtm_active_buffer_count; i++)
-            {
-                if(current->rtm_buffers[i].tag == rtmbuf->tag)
-                {
 #if RTM_DEBUG
-                    fprintf(stderr, "TXN CONFLICT: CPU %d failed because %d read line %p first\n", 
-                            env->cpu_index, current->cpu_index, 
-                            (void*)(rtmbuf->tag << TSE_LOG_CACHE_LINE_SIZE));
+            fprintf(stderr, "TXN CONFLICT: CPU %d failed because %d read line %p first\n", 
+                    env->cpu_index, current->cpu_index, 
+                    (void*)(rtmbuf->tag << TSE_LOG_CACHE_LINE_SIZE));
 #endif
-                    return 1;
-                }
-            }
-        }
-    }
+            return 1;
+        })
 
     return 0;
 }
 
-#define DETECT_CONFLICT detect_conflict_pessimistic
+/* detect if another cpu already wrote to a line we are reading, or
+ * accessed a line we are writing 
+ * This supports READ/READ
+ * */
+static int detect_conflict_writes(CPUX86State *env, TSE_RTM_Buffer *rtmbuf)
+{
+
+    FOREACH_OTHER_TXN(env, current, ctxn, 
+        if(ctxn->tag == rtmbuf->tag)
+        {
+            if(rtmbuf->flags & RTM_FLAG_DIRTY)
+            {
+#if RTM_DEBUG
+                fprintf(stderr, "TXN CONFLICT: CPU %d failed due to WA%c from %d on line %p\n", 
+                        env->cpu_index, (ctxn->flags & RTM_FLAG_DIRTY)?'W':'R',
+                        current->cpu_index, 
+                        (void*)(rtmbuf->tag << TSE_LOG_CACHE_LINE_SIZE));
+#endif
+                return 1;
+            }
+            if(ctxn->flags & RTM_FLAG_DIRTY)
+            {
+#if RTM_DEBUG
+                fprintf(stderr, "TXN CONFLICT: CPU %d failed due to RAW from %d on line %p\n", 
+                        env->cpu_index, current->cpu_index, 
+                        (void*)(rtmbuf->tag << TSE_LOG_CACHE_LINE_SIZE));
+#endif
+                return 1;
+            }
+
+        }
+        )
+
+    return 0;
+}
+
+#define DETECT_CONFLICT detect_conflict_writes
 
 
 static TSE_RTM_Buffer *read_line_into_cache(CPUX86State *env, target_ulong a0)
@@ -265,7 +318,7 @@ static TSE_RTM_Buffer *read_line_into_cache(CPUX86State *env, target_ulong a0)
     addr_base = (rtmbuf->tag << TSE_LOG_CACHE_LINE_SIZE);
 
 #if RTM_DEBUG
-    fprintf(stderr, "CPU %d pulling line %p into txn cache\n", env->cpu_index, (void*)addr_base);
+    //fprintf(stderr, "CPU %d pulling line %p into txn cache\n", env->cpu_index, (void*)addr_base);
 #endif
 
     for(i=0; i<(1u << TSE_LOG_CACHE_LINE_SIZE); i++)
@@ -293,14 +346,13 @@ static void do_txn_buf_read_byte(target_ulong *out_data, CPUX86State *env,
     /* abort on a conflict caused by this read */
     if(DETECT_CONFLICT(env, rtmbuf))
     {
+        env->rtm_conflict_count += 1;
         txn_abort_processing(env, TXA_RETRY | TXA_CONFLICT);
     }
 
     *out_data = rtmbuf->data[offset]; 
 }
 
-
-int aborts = 0;
 
 static void do_txn_buf_write_byte(uint8_t byte, CPUX86State *env, target_ulong a0)
 {
@@ -321,6 +373,7 @@ static void do_txn_buf_write_byte(uint8_t byte, CPUX86State *env, target_ulong a
     /* abort on a conflict caused by this write */
     if(DETECT_CONFLICT(env, rtmbuf))
     {
+        env->rtm_conflict_count += 1;
         txn_abort_processing(env, TXA_RETRY | TXA_CONFLICT);
     }
     
