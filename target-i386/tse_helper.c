@@ -73,7 +73,7 @@ static void txn_abort_processing(CPUX86State *env, uint32_t set_eax)
         set_eax |= TXA_NESTED;
 
 #if RTM_DEBUG
-    fprintf(stderr, "CPU %p aborting transaction\n", env);
+    fprintf(stderr, "CPU %d aborting transaction\n", env->cpu_index);
 #endif
     
     /* restore old regs */
@@ -102,16 +102,23 @@ static void txn_commit(CPUX86State *env)
     int i;
 
 #if RTM_DEBUG
-    fprintf(stderr, "Flushing txn on cpu %p\n", env);
+    fprintf(stderr, "Flushing txn on cpu %d\n", env->cpu_index);
 #endif
     // Flush cached transaction lines
     for(i=0; i<env->rtm_active_buffer_count; i++)
     {
         int j;
         target_ulong linestart = env->rtm_buffers[i].tag << TSE_LOG_CACHE_LINE_SIZE;
+
+        int dirty = env->rtm_buffers[i].flags & RTM_FLAG_DIRTY;
 #if RTM_DEBUG
-        fprintf(stderr, "\tLine %p\n", (void*)linestart);
+        fprintf(stderr, "\tLine %p [%c]\n", (void*)linestart, (dirty)?'D':'.');
 #endif
+
+        // Skip non-dirty lines
+        if(!dirty)
+            continue;
+
         for(j = 0; j < (1u << TSE_LOG_CACHE_LINE_SIZE); j++)
         {
             cpu_stb_data(env, linestart + j, env->rtm_buffers[i].data[j]);
@@ -206,7 +213,7 @@ static TSE_RTM_Buffer *alloc_rtm_buf(CPUX86State *env)
 
 /* detect if another cpu already accessed the line, and abort if they have 
  * This is essentially FCFS conflict resolution */
-static int detect_rtm_conflict(CPUX86State *env, target_ulong tag)
+static int detect_conflict_pessimistic(CPUX86State *env, TSE_RTM_Buffer *rtmbuf)
 {
     CPUX86State *current;
     for(current = first_cpu; current != NULL; current = current->next_cpu)
@@ -220,12 +227,12 @@ static int detect_rtm_conflict(CPUX86State *env, target_ulong tag)
             int i;
             for(i = 0; i < current->rtm_active_buffer_count; i++)
             {
-                if(current->rtm_buffers[i].tag == tag)
+                if(current->rtm_buffers[i].tag == rtmbuf->tag)
                 {
 #if RTM_DEBUG
                     fprintf(stderr, "TXN CONFLICT: CPU %d failed because %d read line %p first\n", 
                             env->cpu_index, current->cpu_index, 
-                            (void*)(tag << TSE_LOG_CACHE_LINE_SIZE));
+                            (void*)(rtmbuf->tag << TSE_LOG_CACHE_LINE_SIZE));
 #endif
                     return 1;
                 }
@@ -236,30 +243,42 @@ static int detect_rtm_conflict(CPUX86State *env, target_ulong tag)
     return 0;
 }
 
-/* do all buffer reads at the byte level to deal with unaligned reads */
-static int do_txn_buf_read_byte(target_ulong *out_data, CPUX86State *env, 
-        target_ulong a0)
+#define DETECT_CONFLICT detect_conflict_pessimistic
+
+
+static TSE_RTM_Buffer *read_line_into_cache(CPUX86State *env, target_ulong a0)
 {
-    target_ulong offset;
-    TSE_RTM_Buffer *rtmbuf;
+    int i;
+    target_ulong addr_base;
 
-    offset = CALC_LINE_OFFSET(a0);
-
-    if((rtmbuf = find_rtm_buf(env, a0)))
+    TSE_RTM_Buffer *rtmbuf = alloc_rtm_buf(env);
+    if(!rtmbuf)
     {
-        *out_data = rtmbuf->data[offset]; 
-        return 1;
+        /* Cannot alloc a new buffer, hardware buffer overflow */
+        fprintf(stderr, "ERROR: HTM overflow\n");
+        txn_abort_processing(env, TXA_OVERFLOW);
     }
-    else
-        return 0;
 
+
+    rtmbuf->tag = (a0 >> TSE_LOG_CACHE_LINE_SIZE);
+    rtmbuf->flags = 0;
+    addr_base = (rtmbuf->tag << TSE_LOG_CACHE_LINE_SIZE);
+
+#if RTM_DEBUG
+    fprintf(stderr, "CPU %d pulling line %p into txn cache\n", env->cpu_index, (void*)addr_base);
+#endif
+
+    for(i=0; i<(1u << TSE_LOG_CACHE_LINE_SIZE); i++)
+    {
+        rtmbuf->data[i] = cpu_ldub_data(env, addr_base + i);
+    }
+
+    return rtmbuf;
 }
 
-
-/* jump buffer for exception handling in transaction cache line pull */
-jmp_buf txn_exception_buf;
-
-static int do_txn_buf_write_byte(uint8_t byte, CPUX86State *env, target_ulong a0)
+/* do all buffer reads at the byte level to deal with unaligned reads */
+static void do_txn_buf_read_byte(target_ulong *out_data, CPUX86State *env, 
+        target_ulong a0)
 {
     target_ulong offset;
     TSE_RTM_Buffer *rtmbuf;
@@ -268,57 +287,52 @@ static int do_txn_buf_write_byte(uint8_t byte, CPUX86State *env, target_ulong a0
 
     if(!(rtmbuf = find_rtm_buf(env, a0)))
     {
-        /* This txn did not touch that line yet, 
-           pull the line into a buffer and modify it */
-        int i;
-        target_ulong addr_base;
+        rtmbuf = read_line_into_cache(env, a0);
+    }
 
-        rtmbuf = alloc_rtm_buf(env);
-        if(!rtmbuf)
-        {
-            /* Cannot alloc a new buffer, hardware buffer overflow */
-            fprintf(stderr, "ERROR: HTM overflow\n");
-            txn_abort_processing(env, TXA_OVERFLOW);
-            longjmp(txn_exception_buf, 1); /* go to exception handler */
-        }
+    /* abort on a conflict caused by this read */
+    if(DETECT_CONFLICT(env, rtmbuf))
+    {
+        txn_abort_processing(env, TXA_RETRY | TXA_CONFLICT);
+    }
+
+    *out_data = rtmbuf->data[offset]; 
+}
 
 
-        rtmbuf->tag = (a0 >> TSE_LOG_CACHE_LINE_SIZE);
-        addr_base = (rtmbuf->tag << TSE_LOG_CACHE_LINE_SIZE);
+int aborts = 0;
 
-        /* abort on conflict between procs */
-        if(detect_rtm_conflict(env, rtmbuf->tag))
-        {
-            txn_abort_processing(env, TXA_RETRY | TXA_CONFLICT);
-            longjmp(txn_exception_buf, 2); /* go to exception handler */
-        }
- 
-#if RTM_DEBUG
-        fprintf(stderr, "CPU %p pulling line %p into txn cache\n", env, (void*)addr_base);
-#endif
+static void do_txn_buf_write_byte(uint8_t byte, CPUX86State *env, target_ulong a0)
+{
+    target_ulong offset;
+    TSE_RTM_Buffer *rtmbuf;
 
-        for(i=0; i<(1u << TSE_LOG_CACHE_LINE_SIZE); i++)
-        {
-            rtmbuf->data[i] = cpu_ldub_data(env, addr_base + i);
-        }
+    offset = CALC_LINE_OFFSET(a0);
+
+    if(!(rtmbuf = find_rtm_buf(env, a0)))
+    {
+        rtmbuf = read_line_into_cache(env, a0);
+    }
+
+
+    /* dirty this line */
+    rtmbuf->flags |= RTM_FLAG_DIRTY;
+
+    /* abort on a conflict caused by this write */
+    if(DETECT_CONFLICT(env, rtmbuf))
+    {
+        txn_abort_processing(env, TXA_RETRY | TXA_CONFLICT);
     }
     
     /* Set the byte in the buffered cache line */
     rtmbuf->data[offset] = byte;
-    return 1;
-
-
 }
 
 static target_ulong do_read_b(CPUX86State *env, target_ulong a0)
 {
     target_ulong data;
 
-    if(!do_txn_buf_read_byte(&data, env, a0))
-    {
-        data = cpu_ldub_data(env, a0);
-        do_txn_buf_write_byte(data & 0xFF, env, a0);
-    }
+    do_txn_buf_read_byte(&data, env, a0);
 
     return data & 0xff;
 }
@@ -359,10 +373,6 @@ static target_ulong do_read_q(CPUX86State *env, target_ulong a0)
 target_ulong HELPER(xmem_read)(CPUX86State *env, int32_t idx, target_ulong a0)
 {
     target_ulong data;
-
-    /* exit immediately on exception */
-    if(setjmp(txn_exception_buf))
-        return 0;
 
     switch(idx & 3)
     {
@@ -424,9 +434,6 @@ target_ulong HELPER(xmem_read_s)(CPUX86State *env, int32_t idx, target_ulong a0)
 void HELPER(xmem_write)(target_ulong data, CPUX86State *env, int32_t idx, target_ulong a0)
 {
 
-    /* break out on exception */
-    if(setjmp(txn_exception_buf))
-        return;
     switch(idx & 3)
     {
         case 0:

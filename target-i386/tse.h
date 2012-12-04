@@ -15,6 +15,9 @@ typedef struct TSE_RTM_Buffer
 {
     target_ulong tag; /* data tag (start of cache line) */
 
+#define RTM_FLAG_DIRTY 1
+    target_ulong flags;
+
     /* data buffer */
     char data[1u << TSE_LOG_CACHE_LINE_SIZE];
 } TSE_RTM_Buffer;
