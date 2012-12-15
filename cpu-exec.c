@@ -179,6 +179,9 @@ static void cpu_handle_debug_exception(CPUArchState *env)
 
 volatile sig_atomic_t exit_request;
 
+FILE *logfile = NULL;
+uint64_t logcycle = 0;
+
 int cpu_exec(CPUArchState *env)
 {
     CPUState *cpu = ENV_GET_CPU(env);
@@ -599,10 +602,24 @@ int cpu_exec(CPUArchState *env)
                 if (likely(!env->exit_request)) {
                     tc_ptr = tb->tc_ptr;
                     /* execute the generated code */
-#if defined(TARGET_X86_64) || defined(TARGET_I386)
-                    if (env->rtm_active)
+#if (defined(TARGET_X86_64) || defined(TARGET_I386)) && defined(DEBUG_SINGLESTEP)
+
+                    if(!logfile)
+                        logfile = fopen("execlog", "w");
+
+                    if (env->rtm_active || env->singlesteps_left > 0)
                     {
-                        //fprintf(stderr, "Translating tb %p in rtm mode (cpu %p)\n", tb, env);
+
+                        logcycle += 1;
+
+                        fprintf(logfile, "EXEC %lu CPU %d PC 0x%lx\n", 
+                                logcycle, env->cpu_index, env->eip);
+
+                        /*if(!env->rtm_active)
+                            env->singlesteps_left -= 1;
+                        else
+                            env->singlesteps_left = DEFAULT_SINGLESTEPS;
+                        */
 
                         cpu_exec_nocache(env, 1, tb);
 

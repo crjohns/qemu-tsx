@@ -4,6 +4,10 @@
 
 #define RTM_DEBUG 1
 
+#define DEBUG_SINGLESTEP /* enable singlestepping */
+#define DEFAULT_SINGLESTEPS 1000  /* Number of times to single step 
+                                     after leaving HTM code */
+
 #define MAX_RTM_NEST_COUNT 128  /* max number of nested txns */
 #define NUM_RTM_BUFFERS 1024     /* max number of cache lines in txn */
 

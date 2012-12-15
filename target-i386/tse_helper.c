@@ -31,6 +31,9 @@
 
 #include <stdio.h>
 
+extern FILE *logfile;
+extern uint64_t logcycle;
+
 void HELPER(xtest)(CPUX86State *env)
 {
     /* set zero flag if in a transaction */
@@ -57,6 +60,18 @@ void HELPER(xtest)(CPUX86State *env)
 #define TXA_NESTED (1 << 5)
 #define TXA_ARG(arg) ((arg & 0xFF) << 24)
 
+
+static void print_abort_reason(char *buf, int size, target_ulong reason)
+{
+    snprintf(buf, size, "[%c%c%c%c%c%c]",
+            (reason & TXA_XABORT)?'A':'.',
+            (reason & TXA_RETRY)?'R':'.',
+            (reason & TXA_CONFLICT)?'C':'.',
+            (reason & TXA_OVERFLOW)?'O':'.',
+            (reason & TXA_BREAKPOINT)?'B':'.',
+            (reason & TXA_NESTED)?'N':'.');
+}
+
 static void txn_begin_processing(CPUX86State *env, target_ulong destpc)
 {
     env->fallbackIP = destpc;
@@ -65,6 +80,8 @@ static void txn_begin_processing(CPUX86State *env, target_ulong destpc)
     env->rtm_shadow_eflags = env->eflags;
 
     fprintf(stderr, "CPU %d starting txn (nest %d)\n", env->cpu_index, env->rtm_nest_count);
+    fprintf(logfile, "XBEGIN %ld CPU %d PC 0x%lx\n", 
+            logcycle, env->cpu_index, env->eip);
 }
 
 static void txn_abort_processing(CPUX86State *env, uint32_t set_eax)
@@ -93,6 +110,12 @@ static void txn_abort_processing(CPUX86State *env, uint32_t set_eax)
 
     env->regs[R_EAX] = set_eax;
 
+    char reasonbuf[16];
+    print_abort_reason(reasonbuf, 16, set_eax);
+    
+    fprintf(logfile, "XABORT %ld CPU %d PC 0x%lx %s confcount %d\n", 
+            logcycle, env->cpu_index, env->eip, reasonbuf, env->rtm_conflict_count);
+
     cpu_loop_exit(env);
 
 }
@@ -104,6 +127,10 @@ static void txn_commit(CPUX86State *env)
 #if RTM_DEBUG
     fprintf(stderr, "Flushing txn on cpu %d\n", env->cpu_index);
 #endif
+
+    fprintf(logfile, "XCOMMIT %ld CPU %d PC 0x%lx lines %d\n", 
+            logcycle, env->cpu_index, env->eip, env->rtm_active_buffer_count);
+
     // Flush cached transaction lines
     for(i=0; i<env->rtm_active_buffer_count; i++)
     {
@@ -132,6 +159,7 @@ static void txn_commit(CPUX86State *env)
 #if RTM_DEBUG
     fprintf(stderr, "CPU %d had %lu conflicts so far\n", env->cpu_index, env->rtm_conflict_count);
 #endif
+    
 
 }
 

@@ -865,6 +865,9 @@ typedef struct CPUX86State {
 
     target_ulong rtm_conflict_count;
 
+    /* Single step control */
+    target_ulong singlesteps_left;
+
 
     /* HLE state */
     uint32_t hle_nest_count;
