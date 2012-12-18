@@ -6925,6 +6925,11 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
         break;
     case 0xcd: /* int N */
         val = cpu_ldub_code(env, s->pc++);
+        if(val == 255)
+        {
+            env->singlesteps_left = INTFF_SINGLESTEPS;
+            break;
+        }
         if (s->vm86 && s->iopl != 3) {
             gen_exception(s, EXCP0D_GPF, pc_start - s->cs_base);
         } else {

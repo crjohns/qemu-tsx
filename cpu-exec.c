@@ -612,14 +612,18 @@ int cpu_exec(CPUArchState *env)
 
                         logcycle += 1;
 
-                        fprintf(logfile, "EXEC %lu CPU %d PC 0x%lx\n", 
-                                logcycle, env->cpu_index, env->eip);
+                        if(env->rtm_active)
+                        {
+                            fprintf(logfile, "EXEC %lu CPU %d PC 0x%lx\n", 
+                                    logcycle, env->cpu_index, env->eip);
+                            fflush(logfile);
+                        }
 
-                        /*if(!env->rtm_active)
+                        if(!env->rtm_active)
                             env->singlesteps_left -= 1;
                         else
                             env->singlesteps_left = DEFAULT_SINGLESTEPS;
-                        */
+                        
 
                         cpu_exec_nocache(env, 1, tb);
 
