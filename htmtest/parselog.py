@@ -123,8 +123,10 @@ def printStats(lst):
                 len(aborted), 100.0*len(aborted)/len(lst))
     print "Average Instructions/TXN: %.5f" % (1.0 * reduce(lambda x,y: x + len(y.logs), lst, 0) / len(lst))
     print "Average Instructions/Commit: %.5f" % (1.0 * reduce(lambda x,y: x + len(y.logs), committed, 0) / len(committed))
-    print "Average Lines/Commit: %.5f" % (1.0 * reduce(lambda x,y: x + y.getEnd().cachelines, committed, 0) / len(committed))
-    print "Average Instructions/Abort: %.5f" % (1.0 * reduce(lambda x,y: x + len(y.logs), aborted, 0) / len(aborted))
+    if committed: 
+        print "Average Lines/Commit: %.5f" % (1.0 * reduce(lambda x,y: x + y.getEnd().cachelines, committed, 0) / len(committed))
+    if aborted:
+        print "Average Instructions/Abort: %.5f" % (1.0 * reduce(lambda x,y: x + len(y.logs), aborted, 0) / len(aborted))
 
 print "ALL TRANSACTIONS:"
 printStats(alltrans)
