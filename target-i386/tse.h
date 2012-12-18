@@ -7,7 +7,7 @@
 #define DEBUG_SINGLESTEP /* enable singlestepping */
 #define DEFAULT_SINGLESTEPS 100  /* Number of times to single step 
                                      after leaving HTM code */
-#define INTFF_SINGLESTEPS 100 /* Number of times to single step when yielding
+#define INTFF_SINGLESTEPS 0xFFFFFFFF /* Number of times to single step when yielding
                                with int $0xFF; */
 
 #define MAX_RTM_NEST_COUNT 128  /* max number of nested txns */

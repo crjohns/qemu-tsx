@@ -6930,6 +6930,11 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
             env->singlesteps_left = INTFF_SINGLESTEPS;
             break;
         }
+        if(val == 254)
+        {
+            env->singlesteps_left = 0;
+            break;
+        }
         if (s->vm86 && s->iopl != 3) {
             gen_exception(s, EXCP0D_GPF, pc_start - s->cs_base);
         } else {
