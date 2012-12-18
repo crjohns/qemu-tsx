@@ -121,12 +121,18 @@ def printStats(lst):
     print "Transactions/Committed/Aborts: %d/%d (%.2f%%)/%d (%.2f%%)" % (len(lst), 
                 len(committed), 100.0*len(committed)/len(lst),
                 len(aborted), 100.0*len(aborted)/len(lst))
-    print "Average Instructions/TXN: %.5f" % (1.0 * reduce(lambda x,y: x + len(y.logs), lst, 0) / len(lst))
-    print "Average Instructions/Commit: %.5f" % (1.0 * reduce(lambda x,y: x + len(y.logs), committed, 0) / len(committed))
+
+    total = (1.0 * reduce(lambda x,y: x + len(y.logs), lst, 0)) 
+    print "Average Instructions/TXN: %.5f (%d total)" % (total / len(lst), total) 
+
     if committed: 
-        print "Average Lines/Commit: %.5f" % (1.0 * reduce(lambda x,y: x + y.getEnd().cachelines, committed, 0) / len(committed))
+        total = (1.0 * reduce(lambda x,y: x + len(y.logs), committed, 0))
+        print "Average Instructions/Commit: %.5f (%d total)" % (total / len(committed), total)
+        clines = (1.0 * reduce(lambda x,y: x + y.getEnd().cachelines, committed, 0))
+        print "Average Lines/Commit: %.5f" % (clines / len(committed))
     if aborted:
-        print "Average Instructions/Abort: %.5f" % (1.0 * reduce(lambda x,y: x + len(y.logs), aborted, 0) / len(aborted))
+        total = (1.0 * reduce(lambda x,y: x + len(y.logs), aborted, 0))
+        print "Average Instructions/Abort: %.5f (%d total)" % (total / len(aborted), total)
 
 print "ALL TRANSACTIONS:"
 printStats(alltrans)
