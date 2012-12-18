@@ -41,7 +41,7 @@ def parseLine(lst):
         line.begin = True
     elif logtype == 'XCOMMIT':
         line.commit = True
-        line.cachelines = lst[7]
+        line.cachelines = int(lst[7])
         pass
     elif logtype == 'XABORT':
         line.abort = True
@@ -83,13 +83,17 @@ class Transaction:
         return self.complete
 
     def aborted(self):
-        return lst and lst[-1].abort
+        return self.logs and self.logs[-1].abort
 
     def committed(self):
-        return lst and lst[-1].commit
+        return self.logs and self.logs[-1].commit
+
+    def getEnd(self):
+        return self.logs[-1]
 
 alltrans = []
 curtrans = dict()
+cpuset = set()
 
 for line in f.readlines():
     lst = line.rstrip().split(' ')
@@ -101,6 +105,7 @@ for line in f.readlines():
         trans = Transaction(pl.cpu)
 
     trans.addLog(pl)
+    cpuset.add(trans.cpu)
 
     if trans.completed():
         alltrans.append(trans)
@@ -109,5 +114,25 @@ for line in f.readlines():
         curtrans[trans.cpu] = trans
 
 assert(len(curtrans.keys()) == 0)
+
+def printStats(lst):
+    aborted = filter(lambda x: x.aborted(), lst)
+    committed = filter(lambda x: x.committed(), lst)
+    print "Transactions/Committed/Aborts: %d/%d (%.2f%%)/%d (%.2f%%)" % (len(lst), 
+                len(committed), 100.0*len(committed)/len(lst),
+                len(aborted), 100.0*len(aborted)/len(lst))
+    print "Average Instructions/TXN: %.5f" % (1.0 * reduce(lambda x,y: x + len(y.logs), lst, 0) / len(lst))
+    print "Average Instructions/Commit: %.5f" % (1.0 * reduce(lambda x,y: x + len(y.logs), committed, 0) / len(committed))
+    print "Average Lines/Commit: %.5f" % (1.0 * reduce(lambda x,y: x + y.getEnd().cachelines, committed, 0) / len(committed))
+    print "Average Instructions/Abort: %.5f" % (1.0 * reduce(lambda x,y: x + len(y.logs), aborted, 0) / len(aborted))
+
+print "ALL TRANSACTIONS:"
+printStats(alltrans)
+for cpu in cpuset:
+    cpulst = filter(lambda x: x.cpu == cpu, alltrans)
+    print "TRANSACTIONS FOR CPU", cpu, ":"
+    printStats(cpulst)
+        
+
 
 
