@@ -5,7 +5,7 @@
 #define RTM_DEBUG 1
 
 #define DEBUG_SINGLESTEP /* enable singlestepping */
-#define DEFAULT_SINGLESTEPS 100  /* Number of times to single step 
+#define DEFAULT_SINGLESTEPS 1000  /* Number of times to single step 
                                      after leaving HTM code */
 #define INTFF_SINGLESTEPS 0xFFFFFFFF /* Number of times to single step when yielding
                                with int $0xFF; */
