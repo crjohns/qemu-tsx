@@ -38,17 +38,20 @@ void HELPER(xtest)(CPUX86State *env)
 {
     /* set zero flag if in a transaction */
     if(env->hle_active || env->rtm_active)
-        env->eflags &= ~CC_Z;
+        cpu_load_eflags(env, 0,  (CC_C | CC_O | CC_S | CC_P | CC_A | CC_Z));
     else
-        env->eflags |= CC_Z;
+        cpu_load_eflags(env, CC_Z,  (CC_C | CC_O | CC_S | CC_P | CC_A | CC_Z));
 
-    /* clear other flags */
-    env->eflags &= (~(CC_C | CC_O | CC_S | CC_P | CC_A));
+    CC_OP = CC_OP_EFLAGS;
 
+    /*
+    if(env->hle_active)
+        fprintf(stderr, "HLE WAS ACTIVE IN TEST\n");
+    if(env->rtm_active)
+        fprintf(stderr, "RTM WAS ACTIVE IN TEST\n");
 
-    /* lazy evaluation */
-    env->cc_src = env->eflags;
-    env->cc_op = CC_OP_EFLAGS;
+    fprintf(stderr, "In XTEST NEW ZF %d\n", env->eflags & CC_Z);
+    */
 }
 
 
