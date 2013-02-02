@@ -23,7 +23,7 @@ int main()
     int lock = 0;
     elock_acquire(&lock);
     elock_release(&lock);
-    printf("Did lock test\n");
+    fprintf(stderr, "Did lock test\n");
 
     int volatile *temp = (int volatile *) malloc(sizeof(int));
 
@@ -81,6 +81,20 @@ int main()
     fprintf(stderr, "Temporary value is %d\n", *temp);
 
     free((void*)temp);
+
+    
+    if(xtest())
+        fprintf(stderr, "Major error outside of txn 1\n");
+
+    asm volatile ("int $0xFF");
+
+    if(xtest())
+        fprintf(stderr, "Major error outside of txn 2\n");
+
+    asm volatile("int $0xFE");
+
+    if(xtest())
+        fprintf(stderr, "Major error outside of txn 3\n");
 
     return 0;
 }
