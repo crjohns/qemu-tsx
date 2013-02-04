@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include "htm.h"
 
+#define TEST_QEMU_EXTRAS 0
+
 
 int testfn()
 {
@@ -87,12 +89,14 @@ int main()
     if(xtest())
         fprintf(stderr, "Major error outside of txn 1\n");
 
+#if (TEST_QEMU_EXTRAS)
     asm volatile ("int $0xFF");
 
     if(xtest())
         fprintf(stderr, "Major error outside of txn 2\n");
 
     asm volatile("int $0xFE");
+#endif
 
     if(xtest())
         fprintf(stderr, "Major error outside of txn 3\n");
