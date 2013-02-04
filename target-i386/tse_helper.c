@@ -55,14 +55,6 @@ void HELPER(xtest)(CPUX86State *env)
 }
 
 
-#define TXA_XABORT (1 << 0)
-#define TXA_RETRY  (1 << 1)
-#define TXA_CONFLICT (1 << 2)
-#define TXA_OVERFLOW (1 << 3)
-#define TXA_BREAKPOINT (1 << 4)
-#define TXA_NESTED (1 << 5)
-#define TXA_ARG(arg) ((arg & 0xFF) << 24)
-
 
 static void print_abort_reason(char *buf, int size, target_ulong reason)
 {
@@ -87,7 +79,7 @@ static void txn_begin_processing(CPUX86State *env, target_ulong destpc)
             logcycle, env->cpu_index, env->eip);
 }
 
-static void txn_abort_processing(CPUX86State *env, uint32_t set_eax)
+void txn_abort_processing(CPUX86State *env, uint32_t set_eax, int action)
 {
     if(env->rtm_nest_count > 1)
         set_eax |= TXA_NESTED;
@@ -119,7 +111,10 @@ static void txn_abort_processing(CPUX86State *env, uint32_t set_eax)
     fprintf(logfile, "XABORT %ld CPU %d PC 0x%lx %s confcount %d\n", 
             logcycle, env->cpu_index, env->eip, reasonbuf, env->rtm_conflict_count);
 
-    cpu_loop_exit(env);
+    if(action == ABORT_EXIT)
+        cpu_loop_exit(env);
+    else
+        return;
 
 }
 
@@ -183,7 +178,7 @@ void HELPER(xbegin)(CPUX86State *env, target_ulong destpc, int32_t dflag)
     else
     {
         /* XXX is OVERFLOW appropriate here? */
-        txn_abort_processing(env, TXA_OVERFLOW | TXA_NESTED);
+        txn_abort_processing(env, TXA_OVERFLOW | TXA_NESTED, ABORT_EXIT);
     }
 }
 
@@ -209,7 +204,7 @@ void HELPER(xend)(CPUX86State *env)
 void HELPER(xabort)(CPUX86State *env, uint32_t reason)
 {
     if(env->rtm_active)
-        txn_abort_processing(env, TXA_XABORT | TXA_ARG(reason));
+        txn_abort_processing(env, TXA_XABORT | TXA_ARG(reason), ABORT_EXIT);
 }
 
 
@@ -340,7 +335,7 @@ static TSE_RTM_Buffer *read_line_into_cache(CPUX86State *env, target_ulong a0)
     {
         /* Cannot alloc a new buffer, hardware buffer overflow */
         fprintf(stderr, "ERROR: HTM overflow\n");
-        txn_abort_processing(env, TXA_OVERFLOW);
+        txn_abort_processing(env, TXA_OVERFLOW, ABORT_EXIT);
     }
 
 
@@ -378,7 +373,7 @@ static void do_txn_buf_read_byte(target_ulong *out_data, CPUX86State *env,
     if(DETECT_CONFLICT(env, rtmbuf))
     {
         env->rtm_conflict_count += 1;
-        txn_abort_processing(env, TXA_RETRY | TXA_CONFLICT);
+        txn_abort_processing(env, TXA_RETRY | TXA_CONFLICT, ABORT_EXIT);
     }
 
     *out_data = rtmbuf->data[offset]; 
@@ -405,7 +400,7 @@ static void do_txn_buf_write_byte(uint8_t byte, CPUX86State *env, target_ulong a
     if(DETECT_CONFLICT(env, rtmbuf))
     {
         env->rtm_conflict_count += 1;
-        txn_abort_processing(env, TXA_RETRY | TXA_CONFLICT);
+        txn_abort_processing(env, TXA_RETRY | TXA_CONFLICT, ABORT_EXIT);
     }
     
     /* Set the byte in the buffered cache line */

@@ -21,6 +21,7 @@
 #include "qemu-log.h"
 #include "sysemu.h"
 #include "helper.h"
+#include "tse.h"
 
 #if 0
 #define raise_exception_err(env, a, b)                                  \
@@ -94,6 +95,13 @@ static void QEMU_NORETURN raise_interrupt2(CPUX86State *env, int intno,
                                            int is_int, int error_code,
                                            int next_eip_addend)
 {
+
+    if(env->rtm_active || env->hle_active)
+    {
+        txn_abort_processing(env, TXA_RETRY, ABORT_RETURN);
+        env->eip -= next_eip_addend;
+    }
+
     if (!is_int) {
         cpu_svm_check_intercept_param(env, SVM_EXIT_EXCP_BASE + intno,
                                       error_code);

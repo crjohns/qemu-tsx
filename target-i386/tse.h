@@ -5,7 +5,7 @@
 #define RTM_DEBUG 1
 
 #define DEBUG_SINGLESTEP /* enable singlestepping */
-#define DEFAULT_SINGLESTEPS 1000  /* Number of times to single step 
+#define DEFAULT_SINGLESTEPS 10  /* Number of times to single step 
                                      after leaving HTM code */
 #define INTFF_SINGLESTEPS 0xFFFFFFFF /* Number of times to single step when yielding
                                with int $0xFF; */
@@ -15,6 +15,17 @@
 
 /* base 2 log of the cache line size (6 -> 64 byte lines) */
 #define TSE_LOG_CACHE_LINE_SIZE 6
+
+
+#define TXA_XABORT (1 << 0)
+#define TXA_RETRY  (1 << 1)
+#define TXA_CONFLICT (1 << 2)
+#define TXA_OVERFLOW (1 << 3)
+#define TXA_BREAKPOINT (1 << 4)
+#define TXA_NESTED (1 << 5)
+#define TXA_ARG(arg) ((arg & 0xFF) << 24)
+
+
 
 
 typedef struct TSE_RTM_Buffer
@@ -28,6 +39,12 @@ typedef struct TSE_RTM_Buffer
     char data[1u << TSE_LOG_CACHE_LINE_SIZE];
 } TSE_RTM_Buffer;
 
+
+typedef struct CPUX86State CPUX86State;
+
+#define ABORT_RETURN 0
+#define ABORT_EXIT 1
+void txn_abort_processing(CPUX86State *env, uint32_t set_eax, int action);
 
 #endif
 
