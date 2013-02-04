@@ -36,10 +36,10 @@ int main()
     reason = xbegin();
     if(reason == 0)
     {
-        if(xtest())
-            fprintf(stderr, "In txn\n");
-        else
-            fprintf(stderr, "Not in txn\n");
+        //if(xtest())
+        //   fprintf(stderr, "In txn\n");
+        //else
+        //   fprintf(stderr, "Not in txn\n");
 
 
         int val = testfn();
@@ -56,7 +56,7 @@ int main()
         }
 
         xend();
-        fprintf(stderr, "TXN Ended\n");
+        fprintf(stderr, "TXN 1 Ended\n");
     }
     else
     {
@@ -71,6 +71,7 @@ int main()
         int val = testfn();
         *temp  += 100;
         xend();
+        fprintf(stderr, "TXN 2 Ended\n");
     }
     else
     {
