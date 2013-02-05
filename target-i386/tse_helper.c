@@ -170,10 +170,13 @@ void HELPER(xbegin)(CPUX86State *env, target_ulong destpc, int32_t dflag)
            Ignoring this for now */
 
         env->rtm_nest_count += 1;
-        env->rtm_active = 1;
-        env->rtm_active_buffer_count = 0;
 
-        txn_begin_processing(env, destpc);
+        if(!env->rtm_active)
+        {
+            env->rtm_active = 1;
+            env->rtm_active_buffer_count = 0;
+            txn_begin_processing(env, destpc);
+        }
     }
     else
     {
