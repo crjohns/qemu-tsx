@@ -108,7 +108,7 @@ void txn_abort_processing(CPUX86State *env, uint32_t set_eax, int action)
     char reasonbuf[16];
     print_abort_reason(reasonbuf, 16, set_eax);
     
-    fprintf(logfile, "XABORT %ld CPU %d PC 0x%lx %s confcount %d\n", 
+    fprintf(logfile, "XABORT %ld CPU %d PC 0x%lx %s confcount %lu\n", 
             logcycle, env->cpu_index, env->eip, reasonbuf, env->rtm_conflict_count);
 
     if(action == ABORT_EXIT)
@@ -126,7 +126,7 @@ static void txn_commit(CPUX86State *env)
     fprintf(stderr, "Flushing txn on cpu %d\n", env->cpu_index);
 #endif
 
-    fprintf(logfile, "XCOMMIT %ld CPU %d PC 0x%lx lines %d\n", 
+    fprintf(logfile, "XCOMMIT %ld CPU %d PC 0x%lx lines %lu\n", 
             logcycle, env->cpu_index, env->eip, env->rtm_active_buffer_count);
 
     // Flush cached transaction lines
@@ -269,6 +269,7 @@ static TSE_RTM_Buffer *alloc_rtm_buf(CPUX86State *env)
 
 /* detect if another cpu already accessed the line, and abort if they have 
  * This is essentially FCFS conflict resolution */
+__attribute__((unused))
 static int detect_conflict_pessimistic(CPUX86State *env, TSE_RTM_Buffer *rtmbuf)
 {
 
@@ -339,18 +340,37 @@ static TSE_RTM_Buffer *read_line_into_cache(CPUX86State *env, target_ulong a0)
     }
 
 
+
     rtmbuf->tag = (a0 >> TSE_LOG_CACHE_LINE_SIZE);
     rtmbuf->flags = 0;
     addr_base = (rtmbuf->tag << TSE_LOG_CACHE_LINE_SIZE);
-
+    
 #if RTM_DEBUG
     //fprintf(stderr, "CPU %d pulling line %p into txn cache\n", env->cpu_index, (void*)addr_base);
 #endif
 
+#ifdef RTM_DATA_DEBUG
+    char *line = (char*)malloc(1024);
+    memset(line, 0, 1024);
+    int len = 0;
+
+    len += snprintf(line+len, 1023-len, "CPU (%d) Line %p\n", env->cpu_index, (void*)addr_base);
+#endif
+
+
     for(i=0; i<(1u << TSE_LOG_CACHE_LINE_SIZE); i++)
     {
         rtmbuf->data[i] = cpu_ldub_data(env, addr_base + i);
+     
+#ifdef RTM_DATA_DEBUG
+        len += snprintf(line+len, 1023-len, " %02x", rtmbuf->data[i] & 0xFF);
+#endif
     }
+
+#ifdef RTM_DATA_DEBUG
+    printf("%s\n", line);
+    free(line);
+#endif
 
     return rtmbuf;
 }
