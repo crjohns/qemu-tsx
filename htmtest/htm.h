@@ -68,6 +68,8 @@ static unsigned int xbegin()
                  "2:\n\t"
                  : "=r"(ret) : : "%eax");
 
+    asm volatile("":::"memory");
+
 #if 0
     fprintf(stderr, "ret is 0x%x\n", ret);
 
@@ -95,6 +97,7 @@ __attribute__ ((unused))
 static void xend()
 {
     asm volatile(XEND_OP);
+    asm volatile("":::"memory");
 }
 
 
