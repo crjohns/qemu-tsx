@@ -13,9 +13,11 @@ QEMU_CONFIGURE_FLAGS = --target-list=x86_64-softmmu,x86_64-linux-user
 CFLAGS = -g
  
 TESTS := sse-test htm-test
+EXTRA_PROGS := threaded
+EXTRA_LIBS := -lpthread
 
 
-all: $(TESTS)
+all: $(TESTS) $(EXTRA_PROGS)
 
 
 clean:
@@ -23,6 +25,9 @@ clean:
 
 $(TESTS) : %: %.o
 	$(CXX) $< -o $@
+
+$(EXTRA_PROGS) : %: %.o
+	$(CXX) $< -o $@ $(EXTRA_LIBS)
 
 %.o: %.c htm.h
 	$(CXX) $< -c -o $@ $(CFLAGS)
