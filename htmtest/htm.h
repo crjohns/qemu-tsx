@@ -3,6 +3,14 @@
 
 //#include <stdlib.h>
 
+#define TXA_XABORT (1 << 0)
+#define TXA_RETRY  (1 << 1)
+#define TXA_CONFLICT (1 << 2)
+#define TXA_OVERFLOW (1 << 3)
+#define TXA_BREAKPOINT (1 << 4)
+#define TXA_NESTED (1 << 5)
+#define TXA_ARG(val) ((val >> 24) & 0xFF)
+
 
 __attribute__ ((unused))
 static int xtest()
