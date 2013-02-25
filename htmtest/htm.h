@@ -16,13 +16,10 @@ __attribute__ ((unused))
 static int xtest()
 {
     register int ret;
-    asm volatile(".byte 0x0f, 0x01, 0xd6\n\t"
-                 "je 1f\n\t"
-                 "movl $0x1, %0\n\t"
-                 "jmp 2f\n\t"
-                 "1:;\n\t"
-                 "movl $0x0, %0\n\t"
-                 "2:;\n\t": "=a"(ret) : );
+    asm volatile("xor %%eax, %%eax\n\t"
+                 ".byte 0x0f, 0x01, 0xd6\n\t"
+                 "setne %%al\n\t"
+                 "mov %%eax, %0\n\t": "=r"(ret) : : "%eax", "memory");
 
     return ret;
 }
