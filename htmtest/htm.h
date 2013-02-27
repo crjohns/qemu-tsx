@@ -11,6 +11,9 @@
 #define TXA_NESTED (1 << 5)
 #define TXA_ARG(val) ((val >> 24) & 0xFF)
 
+#define _XBEGIN_STARTED 0xFFFFFFFF
+#define _XBEGIN_STARTED_STR "0xFFFFFFFF"
+
 
 __attribute__ ((unused))
 static int xtest()
@@ -64,12 +67,13 @@ static unsigned int xbegin()
 {
     register unsigned int ret;
 //    unsigned long long int v1, v2, v3, v4, v5;
-    asm volatile(XBEGIN_OP(2)
+    asm volatile(
+                 XBEGIN_OP(2)
                  "jmp 1f\n\t" /* TXN abort skips this instruction */
                  "movl %%eax, %0\n\t" /* TXN abort, return error */
                  "jmp 2f\n\t"
-                 "1:\n\t" /* In TXN, return 0 */
-                 "movl $0, %0\n\t"
+                 "1:\n\t" /* In TXN, return _XBEGIN_STARTED */
+                 "movl $" _XBEGIN_STARTED_STR ", %0\n\t"
                  "2:\n\t"
                  : "=r"(ret) : : "%eax");
 
