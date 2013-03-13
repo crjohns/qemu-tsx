@@ -1,3 +1,9 @@
+/*
+ *  Memory operation wrapper
+ *
+ *  Author: Christopher R. Johnson <crjohns@csail.mit.edu>
+ */
+
 #ifndef MEMWRAP_H
 #define MEMWRAP_H
 

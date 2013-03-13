@@ -1,3 +1,9 @@
+/*
+ *  Intel(R) Transactional Synchronization Extension Simulation Header
+ *
+ *  Author: Christopher R. Johnson <crjohns@csail.mit.edu>
+ */
+
 #ifndef TSX_H
 #define TSX_H
 
