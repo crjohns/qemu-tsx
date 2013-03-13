@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+# This parses the log file output in "execlog" and prints statistics
+
 import sys
 import os
 import re
