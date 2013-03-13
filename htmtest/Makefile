@@ -37,10 +37,6 @@ test: install-qemu $(TESTS) $(foreach test, $(TESTS), $(test)-test)
 %-test:
 	$(QEMU_USER) $(QEMU_FLAGS) -cpu $(QEMU_CPU) ./$*
 
-
-	
-
-
 install-qemu: build-qemu
 	make -C $(QEMU_BUILD) install
 

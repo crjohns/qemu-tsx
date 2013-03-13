@@ -36,7 +36,7 @@ int main()
 
     int reason;
     reason = xbegin();
-    if(reason == 0)
+    if(reason == _XBEGIN_STARTED)
     {
         //if(xtest())
         //   fprintf(stderr, "In txn\n");
@@ -68,7 +68,7 @@ int main()
     fprintf(stderr, "Temporary value is %x\n", *temp);
 
     reason = xbegin();
-    if(reason == 0)
+    if(reason == _XBEGIN_STARTED)
     {
         int val = testfn();
         *temp  += 100;
