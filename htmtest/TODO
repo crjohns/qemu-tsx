@@ -1,4 +1,0 @@
-TODO List for HTM:
-
-Implement correct conflict resolution, currently more pessimistic than 
-what is implied from the Intel docs.
