@@ -21,7 +21,7 @@
 #include "qemu-log.h"
 #include "sysemu.h"
 #include "helper.h"
-#include "tse.h"
+#include "tsx.h"
 
 #if 0
 #define raise_exception_err(env, a, b)                                  \

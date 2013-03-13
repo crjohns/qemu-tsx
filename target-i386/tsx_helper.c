@@ -23,7 +23,7 @@
 #include "qemu-log.h"
 #include "helper.h"
 
-#include "tse.h"
+#include "tsx.h"
 
 #if !defined(CONFIG_USER_ONLY)
 #include "softmmu_exec.h"
@@ -133,7 +133,7 @@ static void txn_commit(CPUX86State *env)
     for(i=0; i<env->rtm_active_buffer_count; i++)
     {
         int j;
-        target_ulong linestart = env->rtm_buffers[i].tag << TSE_LOG_CACHE_LINE_SIZE;
+        target_ulong linestart = env->rtm_buffers[i].tag << TSX_LOG_CACHE_LINE_SIZE;
 
         int dirty = env->rtm_buffers[i].flags & RTM_FLAG_DIRTY;
 #if RTM_DEBUG
@@ -144,7 +144,7 @@ static void txn_commit(CPUX86State *env)
         if(!dirty)
             continue;
 
-        for(j = 0; j < (1u << TSE_LOG_CACHE_LINE_SIZE); j++)
+        for(j = 0; j < (1u << TSX_LOG_CACHE_LINE_SIZE); j++)
         {
             cpu_stb_data(env, linestart + j, env->rtm_buffers[i].data[j]);
         }
@@ -212,14 +212,14 @@ void HELPER(xabort)(CPUX86State *env, uint32_t reason)
 
 
 /* get the offset of an address within a cache line by extracting low bits */
-#define CALC_LINE_OFFSET(addr) (addr & ((1u << TSE_LOG_CACHE_LINE_SIZE) - 1))
+#define CALC_LINE_OFFSET(addr) (addr & ((1u << TSX_LOG_CACHE_LINE_SIZE) - 1))
 
-static TSE_RTM_Buffer *find_rtm_buf(CPUX86State *env, target_ulong a0)
+static TSX_RTM_Buffer *find_rtm_buf(CPUX86State *env, target_ulong a0)
 {
     int i;
     target_ulong tag;
 
-    tag = a0 >> TSE_LOG_CACHE_LINE_SIZE;
+    tag = a0 >> TSX_LOG_CACHE_LINE_SIZE;
     for(i=0; i<env->rtm_active_buffer_count; i++)
     {
         if(env->rtm_buffers[i].tag == tag)
@@ -231,9 +231,9 @@ static TSE_RTM_Buffer *find_rtm_buf(CPUX86State *env, target_ulong a0)
     return NULL;
 }
 
-static TSE_RTM_Buffer *alloc_rtm_buf(CPUX86State *env)
+static TSX_RTM_Buffer *alloc_rtm_buf(CPUX86State *env)
 {
-    TSE_RTM_Buffer *ret;
+    TSX_RTM_Buffer *ret;
 
     if(env->rtm_active_buffer_count < NUM_RTM_BUFFERS)
     {
@@ -248,7 +248,7 @@ static TSE_RTM_Buffer *alloc_rtm_buf(CPUX86State *env)
 
 /*
  * Execute body for each cache line in a cpu other than that given by "env"
- * The cache line will be in TSE_RTM_Buffer *var, and its associated cpu
+ * The cache line will be in TSX_RTM_Buffer *var, and its associated cpu
  * will be in CPUX86State *current
  */
 #define FOREACH_OTHER_TXN(env, current, var, body) \
@@ -262,7 +262,7 @@ static TSE_RTM_Buffer *alloc_rtm_buf(CPUX86State *env)
             int tctr; \
             for(tctr = 0; tctr < current->rtm_active_buffer_count; tctr++) \
             { \
-                TSE_RTM_Buffer *var = &current->rtm_buffers[tctr]; \
+                TSX_RTM_Buffer *var = &current->rtm_buffers[tctr]; \
                 { body } \
             } \
         } \
@@ -273,7 +273,7 @@ static TSE_RTM_Buffer *alloc_rtm_buf(CPUX86State *env)
 /* detect if another cpu already accessed the line, and abort if they have 
  * This is essentially FCFS conflict resolution */
 __attribute__((unused))
-static int detect_conflict_pessimistic(CPUX86State *env, TSE_RTM_Buffer *rtmbuf)
+static int detect_conflict_pessimistic(CPUX86State *env, TSX_RTM_Buffer *rtmbuf)
 {
 
     FOREACH_OTHER_TXN(env, current, ctxn, 
@@ -282,7 +282,7 @@ static int detect_conflict_pessimistic(CPUX86State *env, TSE_RTM_Buffer *rtmbuf)
 #if RTM_DEBUG
             fprintf(stderr, "TXN CONFLICT: CPU %d failed because %d read line %p first\n", 
                     env->cpu_index, current->cpu_index, 
-                    (void*)(rtmbuf->tag << TSE_LOG_CACHE_LINE_SIZE));
+                    (void*)(rtmbuf->tag << TSX_LOG_CACHE_LINE_SIZE));
 #endif
             return 1;
         })
@@ -294,7 +294,7 @@ static int detect_conflict_pessimistic(CPUX86State *env, TSE_RTM_Buffer *rtmbuf)
  * accessed a line we are writing 
  * This supports READ/READ
  * */
-static int detect_conflict_writes(CPUX86State *env, TSE_RTM_Buffer *rtmbuf)
+static int detect_conflict_writes(CPUX86State *env, TSX_RTM_Buffer *rtmbuf)
 {
 
     FOREACH_OTHER_TXN(env, current, ctxn, 
@@ -306,7 +306,7 @@ static int detect_conflict_writes(CPUX86State *env, TSE_RTM_Buffer *rtmbuf)
                 fprintf(stderr, "TXN CONFLICT: CPU %d failed due to WA%c from %d on line %p\n", 
                         env->cpu_index, (ctxn->flags & RTM_FLAG_DIRTY)?'W':'R',
                         current->cpu_index, 
-                        (void*)(rtmbuf->tag << TSE_LOG_CACHE_LINE_SIZE));
+                        (void*)(rtmbuf->tag << TSX_LOG_CACHE_LINE_SIZE));
 #endif
                 return 1;
             }
@@ -315,7 +315,7 @@ static int detect_conflict_writes(CPUX86State *env, TSE_RTM_Buffer *rtmbuf)
 #if RTM_DEBUG
                 fprintf(stderr, "TXN CONFLICT: CPU %d failed due to RAW from %d on line %p\n", 
                         env->cpu_index, current->cpu_index, 
-                        (void*)(rtmbuf->tag << TSE_LOG_CACHE_LINE_SIZE));
+                        (void*)(rtmbuf->tag << TSX_LOG_CACHE_LINE_SIZE));
 #endif
                 return 1;
             }
@@ -329,12 +329,12 @@ static int detect_conflict_writes(CPUX86State *env, TSE_RTM_Buffer *rtmbuf)
 #define DETECT_CONFLICT detect_conflict_writes
 
 
-static TSE_RTM_Buffer *read_line_into_cache(CPUX86State *env, target_ulong a0)
+static TSX_RTM_Buffer *read_line_into_cache(CPUX86State *env, target_ulong a0)
 {
     int i;
     target_ulong addr_base;
 
-    TSE_RTM_Buffer *rtmbuf = alloc_rtm_buf(env);
+    TSX_RTM_Buffer *rtmbuf = alloc_rtm_buf(env);
     if(!rtmbuf)
     {
         /* Cannot alloc a new buffer, hardware buffer overflow */
@@ -344,9 +344,9 @@ static TSE_RTM_Buffer *read_line_into_cache(CPUX86State *env, target_ulong a0)
 
 
 
-    rtmbuf->tag = (a0 >> TSE_LOG_CACHE_LINE_SIZE);
+    rtmbuf->tag = (a0 >> TSX_LOG_CACHE_LINE_SIZE);
     rtmbuf->flags = 0;
-    addr_base = (rtmbuf->tag << TSE_LOG_CACHE_LINE_SIZE);
+    addr_base = (rtmbuf->tag << TSX_LOG_CACHE_LINE_SIZE);
     
 #if RTM_DEBUG
     //fprintf(stderr, "CPU %d pulling line %p into txn cache\n", env->cpu_index, (void*)addr_base);
@@ -361,7 +361,7 @@ static TSE_RTM_Buffer *read_line_into_cache(CPUX86State *env, target_ulong a0)
 #endif
 
 
-    for(i=0; i<(1u << TSE_LOG_CACHE_LINE_SIZE); i++)
+    for(i=0; i<(1u << TSX_LOG_CACHE_LINE_SIZE); i++)
     {
         rtmbuf->data[i] = cpu_ldub_data(env, addr_base + i);
      
@@ -383,7 +383,7 @@ static void do_txn_buf_read_byte(target_ulong *out_data, CPUX86State *env,
         target_ulong a0)
 {
     target_ulong offset;
-    TSE_RTM_Buffer *rtmbuf;
+    TSX_RTM_Buffer *rtmbuf;
 
     offset = CALC_LINE_OFFSET(a0);
 
@@ -406,7 +406,7 @@ static void do_txn_buf_read_byte(target_ulong *out_data, CPUX86State *env,
 static void do_txn_buf_write_byte(uint8_t byte, CPUX86State *env, target_ulong a0)
 {
     target_ulong offset;
-    TSE_RTM_Buffer *rtmbuf;
+    TSX_RTM_Buffer *rtmbuf;
 
     offset = CALC_LINE_OFFSET(a0);
 

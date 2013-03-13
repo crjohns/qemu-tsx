@@ -1,5 +1,5 @@
-#ifndef TSE_H
-#define TSE_H
+#ifndef TSX_H
+#define TSX_H
 
 
 #define RTM_DEBUG 1
@@ -14,7 +14,7 @@
 #define NUM_RTM_BUFFERS 1024     /* max number of cache lines in txn */
 
 /* base 2 log of the cache line size (6 -> 64 byte lines) */
-#define TSE_LOG_CACHE_LINE_SIZE 6
+#define TSX_LOG_CACHE_LINE_SIZE 6
 
 
 #define TXA_XABORT (1 << 0)
@@ -28,7 +28,7 @@
 
 
 
-typedef struct TSE_RTM_Buffer
+typedef struct TSX_RTM_Buffer
 {
     target_ulong tag; /* data tag (start of cache line) */
 
@@ -36,8 +36,8 @@ typedef struct TSE_RTM_Buffer
     target_ulong flags;
 
     /* data buffer */
-    char data[1u << TSE_LOG_CACHE_LINE_SIZE];
-} TSE_RTM_Buffer;
+    char data[1u << TSX_LOG_CACHE_LINE_SIZE];
+} TSX_RTM_Buffer;
 
 
 typedef struct CPUX86State CPUX86State;
