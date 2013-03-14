@@ -17,7 +17,9 @@ Installation
 ========
 
 ./configure --target-list=x86_64-softmmu
+
 make
+
 make install
 
 Usage
