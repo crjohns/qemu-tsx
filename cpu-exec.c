@@ -602,10 +602,11 @@ int cpu_exec(CPUArchState *env)
                 if (likely(!env->exit_request)) {
                     tc_ptr = tb->tc_ptr;
                     /* execute the generated code */
-#if (defined(TARGET_X86_64) || defined(TARGET_I386)) && defined(DEBUG_SINGLESTEP)
-
                     if(!logfile)
                         logfile = fopen("execlog", "w");
+
+#if (defined(TARGET_X86_64) || defined(TARGET_I386)) && defined(DEBUG_SINGLESTEP)
+
 
                     if (env->rtm_active || env->singlesteps_left > 0)
                     {
