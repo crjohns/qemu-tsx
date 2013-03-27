@@ -38,7 +38,7 @@ Several changes were made to the i386 target to support TSX:
 * New common memory interface in 'target-i386/mem_wrap.h'. This is used to wrap all memory micro-operations in 
 'target-i386/translate.c' to efficiently switch behavior when RTM mode is active.
 * Changes to CPUX86State to support RTM and store register state.
-* Simulate a 64KB fully associative transaction cache with 64 byte cache lines.
+* Simulate a configurable transaction cache with 64 byte cache lines.
 * Instruction interleaving. To force as much contention as possible (and really stress the design) QEMU was modified to 
 execute one emulated instruction at a time on processors in transactional mode before yielding to other 
 emulated processors. This mode can be explicitly triggered using the dummy interrupt 'int $0xFF' and exited using the
@@ -48,7 +48,7 @@ TODO
 ========
 
 * Implement Hardware Lock Elision (HLE). Probably not that difficult given RTM is implemented.
-* Configurable caches. Intel's SDE (http://software.intel.com/en-us/articles/intel-software-development-emulator) supports 
+* DONE: Configurable caches. Intel's SDE (http://software.intel.com/en-us/articles/intel-software-development-emulator) supports 
 configurable cache sizes, defaulting to 32KB 8-way set associative. This should be implemented as well.
 * Non-transactional memory access killing transactions. This seems to be possible in Intel's SDE, but this 
 project does not yet support it.
