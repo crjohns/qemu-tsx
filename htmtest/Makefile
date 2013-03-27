@@ -6,11 +6,13 @@ QEMU_BUILD_JOBS = 6
 QEMU_USER = $(QEMU_INSTALL)/bin/qemu-x86_64
 QEMU_SYSTEM = $(QEMU_INSTALL)/bin/qemu-system-x86_64
 QEMU_FLAGS = 
+QEMU_CFLAGS = -g
 QEMU_CPU ?= Haswell
 
 QEMU_CONFIGURE_FLAGS = --target-list=x86_64-softmmu,x86_64-linux-user
 
-CFLAGS = -g
+CFLAGS := -g
+CXXFLAGS := -g
  
 TESTS := sse-test htm-test
 EXTRA_PROGS := threaded
@@ -34,7 +36,11 @@ $(EXTRA_PROGS) : %: %.o
 
 test: install-qemu $(TESTS) $(foreach test, $(TESTS), $(test)-test)
 
-%-test:
+%-debug: install-qemu
+	@echo "flags: $(QEMU_FLAGS) -cpu $(QEMU_CPU) ./$*"
+	gdb $(QEMU_USER)
+
+%-test: install-qemu
 	$(QEMU_USER) $(QEMU_FLAGS) -cpu $(QEMU_CPU) ./$*
 
 install-qemu: build-qemu
@@ -48,6 +54,6 @@ configure-qemu: $(QEMU_BUILD)/qemu-configured
 $(QEMU_BUILD)/qemu-configured: $(QEMU_SRC)/configure
 	mkdir -p $(QEMU_BUILD)
 	cd $(QEMU_BUILD); \
-		$(QEMU_SRC)/configure $(QEMU_CONFIGURE_FLAGS) --prefix=$(QEMU_INSTALL)
+		CFLAGS="$(QEMU_CFLAGS)" $(QEMU_SRC)/configure $(QEMU_CONFIGURE_FLAGS) --prefix=$(QEMU_INSTALL)
 	touch $(QEMU_BUILD)/qemu-configured
 

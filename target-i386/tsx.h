@@ -10,7 +10,7 @@
 
 #define RTM_DEBUG 1
 
-#define DEBUG_SINGLESTEP /* enable singlestepping */
+//#define DEBUG_SINGLESTEP /* enable singlestepping */
 #define DEFAULT_SINGLESTEPS 10  /* Number of times to single step 
                                      after leaving HTM code */
 #define INTFF_SINGLESTEPS 0xFFFFFFFF /* Number of times to single step when yielding
@@ -21,6 +21,9 @@
 
 /* base 2 log of the cache line size (6 -> 64 byte lines) */
 #define TSX_LOG_CACHE_LINE_SIZE 6
+
+#define TSX_CACHE_WAYS 32
+#define TSX_CACHE_SETS 32
 
 
 #define TXA_XABORT (1 << 0)
@@ -39,6 +42,7 @@ typedef struct TSX_RTM_Buffer
     target_ulong tag; /* data tag (start of cache line) */
 
 #define RTM_FLAG_DIRTY 1
+#define RTM_FLAG_ACTIVE 2
     target_ulong flags;
 
     /* data buffer */

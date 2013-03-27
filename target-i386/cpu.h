@@ -694,6 +694,8 @@ typedef enum TPRAccess {
 } TPRAccess;
 
 #include "tsx.h"
+#include "tsx_cache.h"
+
 
 typedef struct CPUX86State {
     /* standard registers */
@@ -860,8 +862,7 @@ typedef struct CPUX86State {
     target_ulong rtm_shadow_eip;
     target_ulong rtm_shadow_eflags;
 
-    target_ulong rtm_active_buffer_count;
-    TSX_RTM_Buffer rtm_buffers[NUM_RTM_BUFFERS];
+    struct TSXCache *tsx_cache;
 
     target_ulong rtm_conflict_count;
 
@@ -889,6 +890,8 @@ typedef struct CPUX86State {
 
     TPRAccess tpr_access_type;
 } CPUX86State;
+
+
 
 #include "cpu-qom.h"
 

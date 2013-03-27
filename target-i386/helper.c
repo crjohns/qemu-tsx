@@ -24,6 +24,8 @@
 #include "monitor.h"
 #endif
 
+#include "tsx.h"
+
 //#define DEBUG_MMU
 
 static void cpu_x86_version(CPUX86State *env, int *family, int *model)
@@ -1261,6 +1263,9 @@ X86CPU *cpu_x86_init(const char *cpu_model)
         object_delete(OBJECT(cpu));
         return NULL;
     }
+
+    create_rtm_cache(&cpu->env, TSX_CACHE_WAYS, TSX_CACHE_SETS);
+
     return cpu;
 }
 

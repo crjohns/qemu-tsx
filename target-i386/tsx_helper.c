@@ -9,6 +9,7 @@
 #include "helper.h"
 
 #include "tsx.h"
+#include "tsx_cache.h"
 
 #if !defined(CONFIG_USER_ONLY)
 #include "softmmu_exec.h"
@@ -18,6 +19,8 @@
 
 extern FILE *logfile;
 extern uint64_t logcycle;
+
+
 
 void HELPER(xtest)(CPUX86State *env)
 {
@@ -86,7 +89,7 @@ void txn_abort_processing(CPUX86State *env, uint32_t set_eax, int action)
     env->rtm_active = 0;
 
     /* free all buffers */
-    env->rtm_active_buffer_count = 0;
+    clear_rtm_cache(env);
 
     env->regs[R_EAX] = set_eax;
 
@@ -106,37 +109,43 @@ void txn_abort_processing(CPUX86State *env, uint32_t set_eax, int action)
 static void txn_commit(CPUX86State *env)
 {
     int i;
+    int flushed = 0;
+    TSXCache *cache = env->tsx_cache;
 
 #if RTM_DEBUG
     fprintf(stderr, "Flushing txn on cpu %d\n", env->cpu_index);
 #endif
 
     fprintf(logfile, "XCOMMIT %ld CPU %d PC 0x%lx lines %lu\n", 
-            logcycle, env->cpu_index, env->eip, env->rtm_active_buffer_count);
+            logcycle, env->cpu_index, env->eip, cache->alloced_lines);
 
     // Flush cached transaction lines
-    for(i=0; i<env->rtm_active_buffer_count; i++)
+    for(i=0; i<cache->ways * cache->sets && (flushed < cache->alloced_lines); i++)
     {
         int j;
-        target_ulong linestart = env->rtm_buffers[i].tag << TSX_LOG_CACHE_LINE_SIZE;
+        TSX_RTM_Buffer *buf = &cache->buffer[i];
+        target_ulong linestart = buf->tag << TSX_LOG_CACHE_LINE_SIZE;
 
-        int dirty = env->rtm_buffers[i].flags & RTM_FLAG_DIRTY;
+        if(buf->flags & RTM_FLAG_ACTIVE)
+        {
+            int dirty = buf->flags & RTM_FLAG_DIRTY;
 #if RTM_DEBUG
-        fprintf(stderr, "\tLine %p [%c]\n", (void*)linestart, (dirty)?'D':'.');
+            fprintf(stderr, "\tLine %p [%c]\n", (void*)linestart, (dirty)?'D':'.');
 #endif
 
-        // Skip non-dirty lines
-        if(!dirty)
-            continue;
+            // Skip non-dirty lines
+            if(!dirty)
+                continue;
 
-        for(j = 0; j < (1u << TSX_LOG_CACHE_LINE_SIZE); j++)
-        {
-            cpu_stb_data(env, linestart + j, env->rtm_buffers[i].data[j]);
+            for(j = 0; j < (1u << TSX_LOG_CACHE_LINE_SIZE); j++)
+            {
+                cpu_stb_data(env, linestart + j, buf->data[j]);
+            }
         }
     }
 
     // Clear buffer count, disable RTM
-    env->rtm_active_buffer_count = 0;
+    clear_rtm_cache(env);
     env->rtm_active = 0;
 
 #if RTM_DEBUG
@@ -159,7 +168,7 @@ void HELPER(xbegin)(CPUX86State *env, target_ulong destpc, int32_t dflag)
         if(!env->rtm_active)
         {
             env->rtm_active = 1;
-            env->rtm_active_buffer_count = 0;
+            clear_rtm_cache(env);
             txn_begin_processing(env, destpc);
         }
     }
@@ -196,72 +205,13 @@ void HELPER(xabort)(CPUX86State *env, uint32_t reason)
 }
 
 
-/* get the offset of an address within a cache line by extracting low bits */
-#define CALC_LINE_OFFSET(addr) (addr & ((1u << TSX_LOG_CACHE_LINE_SIZE) - 1))
-
-static TSX_RTM_Buffer *find_rtm_buf(CPUX86State *env, target_ulong a0)
-{
-    int i;
-    target_ulong tag;
-
-    tag = a0 >> TSX_LOG_CACHE_LINE_SIZE;
-    for(i=0; i<env->rtm_active_buffer_count; i++)
-    {
-        if(env->rtm_buffers[i].tag == tag)
-        {
-            return &env->rtm_buffers[i];
-        }
-    }
-
-    return NULL;
-}
-
-static TSX_RTM_Buffer *alloc_rtm_buf(CPUX86State *env)
-{
-    TSX_RTM_Buffer *ret;
-
-    if(env->rtm_active_buffer_count < NUM_RTM_BUFFERS)
-    {
-        ret = &env->rtm_buffers[env->rtm_active_buffer_count];
-        env->rtm_active_buffer_count += 1;
-        return ret;
-    }
-    else
-        return NULL;
-}
-
-
-/*
- * Execute body for each cache line in a cpu other than that given by "env"
- * The cache line will be in TSX_RTM_Buffer *var, and its associated cpu
- * will be in CPUX86State *current
- */
-#define FOREACH_OTHER_TXN(env, current, var, body) \
-{ \
-    CPUX86State *current; \
-    for(current = first_cpu; current != NULL; current = current->next_cpu)  \
-    { \
-        if(current == env) continue; \
-        if(current->rtm_active) \
-        { \
-            int tctr; \
-            for(tctr = 0; tctr < current->rtm_active_buffer_count; tctr++) \
-            { \
-                TSX_RTM_Buffer *var = &current->rtm_buffers[tctr]; \
-                { body } \
-            } \
-        } \
-    } \
-}
-
-
 /* detect if another cpu already accessed the line, and abort if they have 
  * This is essentially FCFS conflict resolution */
 __attribute__((unused))
 static int detect_conflict_pessimistic(CPUX86State *env, TSX_RTM_Buffer *rtmbuf)
 {
 
-    FOREACH_OTHER_TXN(env, current, ctxn, 
+    FOREACH_OTHER_TXN(env, rtmbuf->tag, current, ctxn, 
         if(ctxn->tag == rtmbuf->tag)
         {
 #if RTM_DEBUG
@@ -282,7 +232,7 @@ static int detect_conflict_pessimistic(CPUX86State *env, TSX_RTM_Buffer *rtmbuf)
 static int detect_conflict_writes(CPUX86State *env, TSX_RTM_Buffer *rtmbuf)
 {
 
-    FOREACH_OTHER_TXN(env, current, ctxn, 
+    FOREACH_OTHER_TXN(env, rtmbuf->tag, current, ctxn, 
         if(ctxn->tag == rtmbuf->tag)
         {
             if(rtmbuf->flags & RTM_FLAG_DIRTY)
@@ -319,7 +269,7 @@ static TSX_RTM_Buffer *read_line_into_cache(CPUX86State *env, target_ulong a0)
     int i;
     target_ulong addr_base;
 
-    TSX_RTM_Buffer *rtmbuf = alloc_rtm_buf(env);
+    TSX_RTM_Buffer *rtmbuf = alloc_rtm_buf(env, a0);
     if(!rtmbuf)
     {
         /* Cannot alloc a new buffer, hardware buffer overflow */
@@ -330,7 +280,6 @@ static TSX_RTM_Buffer *read_line_into_cache(CPUX86State *env, target_ulong a0)
 
 
     rtmbuf->tag = (a0 >> TSX_LOG_CACHE_LINE_SIZE);
-    rtmbuf->flags = 0;
     addr_base = (rtmbuf->tag << TSX_LOG_CACHE_LINE_SIZE);
     
 #if RTM_DEBUG
