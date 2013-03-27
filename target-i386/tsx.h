@@ -22,8 +22,6 @@
 /* base 2 log of the cache line size (6 -> 64 byte lines) */
 #define TSX_LOG_CACHE_LINE_SIZE 6
 
-#define TSX_CACHE_WAYS 32
-#define TSX_CACHE_SETS 32
 
 
 #define TXA_XABORT (1 << 0)

@@ -4,6 +4,8 @@
 #include "cpu.h"
 #include "tsx.h"
 
+#define TSX_CACHE_WAYS 8
+#define TSX_CACHE_SETS 64
 
 /* get the offset of an address within a cache line by extracting low bits */
 #define CALC_LINE_OFFSET(addr) (addr & ((1u << TSX_LOG_CACHE_LINE_SIZE) - 1))
