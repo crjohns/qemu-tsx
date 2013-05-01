@@ -131,7 +131,9 @@ def printStats(lst):
         total = (1.0 * reduce(lambda x,y: x + len(y.logs), committed, 0))
         print "Average Instructions/Commit: %.5f (%d total)" % (total / len(committed), total)
         clines = (1.0 * reduce(lambda x,y: x + y.getEnd().cachelines, committed, 0))
+        maxlines = reduce(lambda x,y: max(x, y.getEnd().cachelines), committed, 0)
         print "Average Lines/Commit: %.5f" % (clines / len(committed))
+        print "Max Lines/Commit: %.5f" % (maxlines)
     if aborted:
         total = (1.0 * reduce(lambda x,y: x + len(y.logs), aborted, 0))
         print "Average Instructions/Abort: %.5f (%d total)" % (total / len(aborted), total)
