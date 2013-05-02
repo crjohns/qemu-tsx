@@ -17,6 +17,7 @@
                                with int $0xFF; */
 
 #define MAX_RTM_NEST_COUNT 128  /* max number of nested txns */
+#define MAX_HLE_NEST_COUNT 128  /* max number of nested elided locks */
 #define NUM_RTM_BUFFERS 1024     /* max number of cache lines in txn */
 
 /* base 2 log of the cache line size (6 -> 64 byte lines) */

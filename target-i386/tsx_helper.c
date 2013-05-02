@@ -84,9 +84,15 @@ void txn_abort_processing(CPUX86State *env, uint32_t set_eax, int action)
     env->cc_op = CC_OP_EFLAGS;
     env->cc_src = env->eflags;
 
+    /* special setting for hle to no reenter transaction */
+    if(env->hle_active)
+        env->hle_failed = 1;
+
     /* reset RTM state */
     env->rtm_nest_count = 0;
     env->rtm_active = 0;
+    env->hle_nest_count = 0;
+    env->hle_active = 0;
 
     /* free all buffers */
     clear_rtm_cache(env);
@@ -146,7 +152,8 @@ static void txn_commit(CPUX86State *env)
 
     // Clear buffer count, disable RTM
     clear_rtm_cache(env);
-    env->rtm_active = 0;
+    env->hle_nest_count = env->rtm_nest_count = 0;
+    env->rtm_active = env->hle_active = 0;
 
 #if RTM_DEBUG
     fprintf(stderr, "CPU %d had %lu conflicts so far\n", env->cpu_index, env->rtm_conflict_count);
@@ -498,6 +505,117 @@ void HELPER(xmem_write)(target_ulong data, CPUX86State *env, int32_t idx, target
             break;
 #endif
     }
+}
+
+void HELPER(xacquire_cmpxchg)(target_ulong data, CPUX86State *env, int32_t idx, target_ulong a0, target_ulong destpc)
+{
+    TSX_RTM_Buffer *rtmbuf = NULL;
+    unsigned int alignment = idx & 3;
+    target_ulong compare;
+    target_ulong compare_eax;
+
+    compare_eax = env->regs[R_EAX];
+    switch(alignment)
+    {
+        case 0:
+            compare_eax &= 0xFF;
+            break;
+        case 1:
+            compare_eax &= 0xFFFF;
+            break;
+        case 2:
+            compare_eax &= 0xFFFFFFFF;
+            break;
+    }
+
+    // XXX: Unaligned reads are a pain, panic if not aligned for now
+    if(((alignment == 3) && (idx % 8)) ||
+       ((alignment == 2) && (idx % 4)) ||
+       ((alignment == 1) && (idx % 2)))
+    {
+        fprintf(stderr, "Unaligned cmpxchg (addr %lx, align %d) at %s:%d, aborting\n", a0, alignment,  __FILE__, __LINE__);
+        abort();
+    }
+
+    if(env->rtm_active)
+    {
+        // Error to xacquire in RTM
+        txn_abort_processing(env, (env->rtm_nest_count > 1)?TXA_NESTED:0, ABORT_EXIT);
+        return;
+    }
+    else if(env->hle_active)
+    {
+        compare = helper_xmem_read(env, idx, a0);
+    }
+    else
+    {
+        switch(alignment)
+        {
+            case 0:
+                compare = cpu_ldub_data(env, a0) & 0xFF;
+                break;
+            case 1:
+                compare = cpu_lduw_data(env, a0) & 0xFFFF;
+                break;
+            case 2:
+                compare = cpu_ldl_data(env, a0) & 0xFFFFFFFF;
+                break;
+            default:
+#ifdef TARGET_X86_64
+            case 3:
+                compare = cpu_ldq_data(env, a0);
+                break;
+#endif
+        }
+    }
+
+
+    if(compare != compare_eax)
+    {
+        if(env->hle_active)
+        {
+            txn_abort_processing(env, (env->hle_nest_count > 1)?TXA_NESTED:0, ABORT_EXIT);
+        }
+        else
+        {
+            cpu_load_eflags(env, 0,  (CC_C | CC_O | CC_S | CC_P | CC_A | CC_Z));
+            CC_OP = CC_OP_EFLAGS;
+            return;
+        }
+    }
+    
+    if(env->hle_nest_count < MAX_HLE_NEST_COUNT)
+    {
+        unsigned int old_dirty;
+        env->hle_nest_count += 1;
+
+        if(!env->hle_active)
+        {
+            env->hle_active = 1;
+            clear_rtm_cache(env);
+            txn_begin_processing(env, destpc);
+        }
+        
+        if((rtmbuf = find_rtm_buf(env, a0)))
+        {
+            old_dirty = rtmbuf->flags & RTM_FLAG_DIRTY;
+        }
+
+        helper_xmem_write(data, env, idx, a0);
+        rtmbuf = find_rtm_buf(env, a0);
+        rtmbuf->flags &= ~RTM_FLAG_DIRTY;
+        rtmbuf->flags |= old_dirty;
+
+        cpu_load_eflags(env, CC_Z,  (CC_C | CC_O | CC_S | CC_P | CC_A | CC_Z));
+        CC_OP = CC_OP_EFLAGS;
+
+    }
+    else
+    {
+        /* XXX is OVERFLOW appropriate here? */
+        txn_abort_processing(env, TXA_OVERFLOW | TXA_NESTED, ABORT_EXIT);
+    }
+
 }
 
 

@@ -853,6 +853,7 @@ typedef struct CPUX86State {
     /* transaction state */
     target_ulong rtm_active;
     target_ulong hle_active;
+    target_ulong hle_failed;
 
     /* RTM state */
     uint32_t rtm_nest_count;
