@@ -611,7 +611,6 @@ int cpu_exec(CPUArchState *env)
 
 #if (defined(TARGET_X86_64) || defined(TARGET_I386))
 
-
                     if (txstep && (env->rtm_active || env->singlesteps_left > 0))
                     {
 

@@ -205,6 +205,7 @@ CharDriverState *parallel_hds[MAX_PARALLEL_PORTS];
 CharDriverState *virtcon_hds[MAX_VIRTIO_CONSOLES];
 int win2k_install_hack = 0;
 int singlestep = 0;
+extern int txstep;
 int smp_cpus = 1;
 int max_cpus = 0;
 int smp_cores = 1;
@@ -2966,6 +2967,9 @@ int main(int argc, char **argv, char **envp)
                 break;
             case QEMU_OPTION_singlestep:
                 singlestep = 1;
+                break;
+            case QEMU_OPTION_txstep:
+                txstep = 1;
                 break;
             case QEMU_OPTION_S:
                 autostart = 0;

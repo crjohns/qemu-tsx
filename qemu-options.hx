@@ -2425,6 +2425,16 @@ STEXI
 Run the emulation in single step mode.
 ETEXI
 
+DEF("txstep", 0, QEMU_OPTION_txstep, \
+    "-txstep     single step transactions for Haswell\n", QEMU_ARCH_I386)
+STEXI
+@item -txstep
+@findex -txstep
+Single step in TSX transactions
+ETEXI
+
+
+
 DEF("S", 0, QEMU_OPTION_S, \
     "-S              freeze CPU at startup (use 'c' to start execution)\n",
     QEMU_ARCH_ALL)
