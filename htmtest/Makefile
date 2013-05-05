@@ -5,7 +5,7 @@ QEMU_BUILD_JOBS = 6
 
 QEMU_USER = $(QEMU_INSTALL)/bin/qemu-x86_64
 QEMU_SYSTEM = $(QEMU_INSTALL)/bin/qemu-system-x86_64
-QEMU_FLAGS = 
+QEMU_FLAGS =  -txstep
 QEMU_CFLAGS = -g
 QEMU_CPU ?= Haswell
 

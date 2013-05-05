@@ -40,6 +40,7 @@
 char *exec_path;
 
 int singlestep;
+extern int txstep;
 const char *filename;
 const char *argv0;
 int gdbstub_port;
@@ -3199,6 +3200,11 @@ static void handle_arg_singlestep(const char *arg)
     singlestep = 1;
 }
 
+static void handle_arg_txstep(const char *arg)
+{
+    txstep = 1;
+}
+
 static void handle_arg_strace(const char *arg)
 {
     do_strace = 1;
@@ -3253,6 +3259,8 @@ static const struct qemu_argument arg_table[] = {
      "pagesize",   "set the host page size to 'pagesize'"},
     {"singlestep", "QEMU_SINGLESTEP",  false, handle_arg_singlestep,
      "",           "run in singlestep mode"},
+    {"txstep", "QEMU_TXSINGLESTEP",  false, handle_arg_txstep,
+     "",           "single step for transactions"},
     {"strace",     "QEMU_STRACE",      false, handle_arg_strace,
      "",           "log system calls"},
     {"version",    "QEMU_VERSION",     false, handle_arg_version,

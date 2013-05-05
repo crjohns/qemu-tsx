@@ -23,6 +23,10 @@
 #include "qemu-barrier.h"
 #include "qtest.h"
 
+#define DEBUG_SINGLESTEP
+
+int txstep = 0;
+
 int tb_invalidated_flag;
 
 //#define CONFIG_DEBUG_EXEC
@@ -605,10 +609,10 @@ int cpu_exec(CPUArchState *env)
                     if(!logfile)
                         logfile = fopen("execlog", "w");
 
-#if (defined(TARGET_X86_64) || defined(TARGET_I386)) && defined(DEBUG_SINGLESTEP)
+#if (defined(TARGET_X86_64) || defined(TARGET_I386))
 
 
-                    if (env->rtm_active || env->singlesteps_left > 0)
+                    if (txstep && (env->rtm_active || env->singlesteps_left > 0))
                     {
 
                         logcycle += 1;
