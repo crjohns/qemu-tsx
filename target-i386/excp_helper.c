@@ -98,8 +98,11 @@ static void QEMU_NORETURN raise_interrupt2(CPUX86State *env, int intno,
 
     if(env->rtm_active || env->hle_active)
     {
-        txn_abort_processing(env, TXA_RETRY, ABORT_RETURN);
-        env->eip -= next_eip_addend;
+        // XXX: This aborts the transaction without raising the interrupt
+        // is there a better way? 
+        fprintf(stderr, "ABORTED TRANSACTION DUE TO INTERRUPT AT 0x%lx int 0x%x code 0x%x addend %d cr2 0x%lx isint %d\n", env->eip, intno, error_code, next_eip_addend, env->cr[2], is_int);
+
+        txn_abort_processing(env, TXA_RETRY, ABORT_EXIT);
     }
 
     if (!is_int) {

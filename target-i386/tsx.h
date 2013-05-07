@@ -10,15 +10,13 @@
 
 #define RTM_DEBUG 1
 
-//#define DEBUG_SINGLESTEP /* enable singlestepping */
-#define DEFAULT_SINGLESTEPS 10  /* Number of times to single step 
+#define DEFAULT_SINGLESTEPS 100  /* Number of times to single step 
                                      after leaving HTM code */
 #define INTFF_SINGLESTEPS 0xFFFFFFFF /* Number of times to single step when yielding
                                with int $0xFF; */
 
 #define MAX_RTM_NEST_COUNT 128  /* max number of nested txns */
 #define MAX_HLE_NEST_COUNT 128  /* max number of nested elided locks */
-#define NUM_RTM_BUFFERS 1024     /* max number of cache lines in txn */
 
 /* base 2 log of the cache line size (6 -> 64 byte lines) */
 #define TSX_LOG_CACHE_LINE_SIZE 6

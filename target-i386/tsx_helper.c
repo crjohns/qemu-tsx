@@ -73,7 +73,7 @@ void txn_abort_processing(CPUX86State *env, uint32_t set_eax, int action)
         set_eax |= TXA_NESTED;
 
 #if RTM_DEBUG
-    fprintf(stderr, "CPU %d aborting transaction\n", env->cpu_index);
+    fprintf(stderr, "CPU %d aborting transaction [nest %d] at 0x%lx (fallback to 0x%lx)\n", env->cpu_index, env->rtm_nest_count, env->eip, env->fallbackIP);
 #endif
     
     /* restore old regs */

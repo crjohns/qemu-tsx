@@ -1144,14 +1144,34 @@ static void tcg_exec_all(void)
         qemu_clock_enable(vm_clock,
                           (env->singlestep_enabled & SSTEP_NOTIMER) == 0);
 
+#ifdef CPUS_DEBUG
+        fprintf(stderr, "trying to run %d... ", env->cpu_index);
+#endif
+
         if (cpu_can_run(cpu)) {
+#ifdef CPUS_DEBUG
+            fprintf(stderr, "starting (%d) at %lx\n", env->cpu_index, env->eip);
+#endif
             r = tcg_cpu_exec(env);
+#ifdef CPUS_DEBUG
+            fprintf(stderr, "finished (%d) at %lx\n", env->cpu_index, env->eip);
+#endif
             if (r == EXCP_DEBUG) {
                 cpu_handle_guest_debug(env);
                 break;
             }
+            if (r == EXCP_RTMSTEP) {
+                continue;
+            }
         } else if (cpu->stop || cpu->stopped) {
+#ifdef CPUS_DEBUG
+            fprintf(stderr, "stopped (%d)\n", env->cpu_index);
+#endif
             break;
+        } else {
+#ifdef CPUS_DEBUG
+            fprintf(stderr, "can't run (%d)\n", env->cpu_index);
+#endif
         }
     }
     exit_request = 0;
