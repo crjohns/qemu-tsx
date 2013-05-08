@@ -42,17 +42,24 @@ Several changes were made to the i386 target to support TSX:
 * Instruction interleaving. To force as much contention as possible (and really stress the design) QEMU was modified to 
 execute one emulated instruction at a time on processors in transactional mode before yielding to other 
 emulated processors. This mode can be explicitly triggered using the dummy interrupt 'int $0xFF' and exited using the
-dummy interrupt 'int $0xFE'. This can be disabled by undefining DEBUG_SINGLESTEP in 'target-i386/tsx.h'.
+dummy interrupt 'int $0xFE'. This can be enabled by the command line option -txstep
+
+Features
+========
+
+* Configurable caches (defaulting to 32KB 8-way set associative). See target-i386/tsx_cache.h
+* Non-transactional memory access killing transactions.
+
+See also
+========
+
+For userspace: Intel's SDE (http://software.intel.com/en-us/articles/intel-software-development-emulator).
 
 TODO
 ========
 
 * Implement Hardware Lock Elision (HLE). Probably not that difficult given RTM is implemented.
-* DONE: Configurable caches. Intel's SDE (http://software.intel.com/en-us/articles/intel-software-development-emulator) supports 
-configurable cache sizes, defaulting to 32KB 8-way set associative. This should be implemented as well.
-* Non-transactional memory access killing transactions. This seems to be possible in Intel's SDE, but this 
 project does not yet support it.
-* Better options to disable/enable DEBUG_SINGLESTEP mode.
 
 
  
