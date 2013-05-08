@@ -209,7 +209,7 @@ void HELPER(xend)(CPUX86State *env)
 
     if(env->tsx_killer_ip)
     {
-        txn_abort_processing(env, TXA_CONFLICT, ABORT_EXIT);
+        txn_abort_processing(env, TXA_CONFLICT|TXA_RETRY, ABORT_EXIT);
     }
 
     env->rtm_nest_count -= 1;
@@ -435,7 +435,7 @@ target_ulong HELPER(xmem_read)(CPUX86State *env, int32_t idx, target_ulong a0)
 
     if(env->tsx_killer_ip)
     {
-        txn_abort_processing(env, TXA_CONFLICT, ABORT_EXIT);
+        txn_abort_processing(env, TXA_CONFLICT|TXA_RETRY, ABORT_EXIT);
     }
 
     switch(idx & 3)
@@ -516,7 +516,7 @@ void HELPER(xmem_write)(target_ulong data, CPUX86State *env, int32_t idx, target
 
     if(env->tsx_killer_ip)
     {
-        txn_abort_processing(env, TXA_CONFLICT, ABORT_EXIT);
+        txn_abort_processing(env, TXA_CONFLICT|TXA_RETRY, ABORT_EXIT);
     }
 
     switch(idx & 3)
