@@ -536,7 +536,7 @@ static inline void gen_op_lds_T0_A0(int idx)
 {
     TCGv tmp;
 
-    wrap_memop_v(idx, cpu_T[0], cpu_A0, gen_op_ld_s, NULL);
+    wrap_memop_v(idx, cpu_T[0], cpu_A0, gen_op_ld_s, NULL, false);
 
     tmp = tcg_temp_new();
 

@@ -230,6 +230,8 @@ DEF_HELPER_3(xmem_read, tl, env, s32, tl)
 DEF_HELPER_3(xmem_read_s, tl, env, s32, tl)
 DEF_HELPER_4(xmem_write, void, tl, env, s32, tl)
 
+DEF_HELPER_3(xmem_try_kill, void, env, tl, tl)
+
 DEF_HELPER_2(debug_val, void, tl, tl)
 
 #include "def-helper.h"

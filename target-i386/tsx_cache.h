@@ -44,16 +44,16 @@ TSX_RTM_Buffer *alloc_rtm_buf(CPUX86State *env, target_ulong a0);
  * The cache line will be in TSX_RTM_Buffer *var, and its associated cpu
  * will be in CPUX86State *current
  */
-#define FOREACH_OTHER_TXN(env, tag, current, var, body) \
+#define FOREACH_OTHER_TXN(env, tag_in, current, var, body) \
 { \
     CPUX86State *current; \
     for(current = first_cpu; current != NULL; current = current->next_cpu)  \
     { \
         if(current == env) continue; \
-        TSXCache *cache = env->tsx_cache; \
+        TSXCache *cache = current->tsx_cache; \
         if(current->rtm_active) \
         { \
-            target_ulong baseIndex = TAG_HASH(cache, tag); \
+            target_ulong baseIndex = TAG_HASH(cache, tag_in); \
             int i; \
             for(i = 0; i < cache->ways; i++) \
             { \

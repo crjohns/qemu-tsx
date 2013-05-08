@@ -22,6 +22,8 @@
 #define TSX_LOG_CACHE_LINE_SIZE 6
 
 
+#define TX_KILL_READ  (1)
+#define TX_KILL_WRITE (2)
 
 #define TXA_XABORT (1 << 0)
 #define TXA_RETRY  (1 << 1)

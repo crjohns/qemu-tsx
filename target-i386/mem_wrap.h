@@ -8,14 +8,15 @@
 #define MEMWRAP_H
 
 #define wrap_read_v(idx, t0, a0) \
-    wrap_memop_v(idx, t0, a0, gen_op_ld_v, gen_helper_xmem_read)
+    wrap_memop_v(idx, t0, a0, gen_op_ld_v, gen_helper_xmem_read, false)
 
 #define wrap_write_v(idx, t0, a0) \
-    wrap_memop_v(idx, t0, a0, gen_op_st_v, gen_helper_xmem_write)
+    wrap_memop_v(idx, t0, a0, gen_op_st_v, gen_helper_xmem_write, true)
 
 static void wrap_memop_v(int idx, TCGv t0, TCGv a0, 
         void (*opfn)(int, TCGv, TCGv),
-        void (*altfn)(TCGv, TCGv_ptr, TCGv, TCGv))
+        void (*altfn)(TCGv, TCGv_ptr, TCGv, TCGv),
+        bool isWrite)
 {
     if(cpu_single_env->cpuid_7_0_ebx_features & 
                 (CPUID_7_0_EBX_RTM | CPUID_7_0_EBX_HLE))
@@ -34,6 +35,8 @@ static void wrap_memop_v(int idx, TCGv t0, TCGv a0,
 
         tcg_gen_brcondi_tl(TCG_COND_NE, tmp, 0, ltxn);
         /* not in txn */
+        tcg_gen_movi_tl(tmp, isWrite);
+        gen_helper_xmem_try_kill(cpu_env, a0, tmp);
         opfn(idx, t0, a0);
         tcg_gen_br(ldone);
 

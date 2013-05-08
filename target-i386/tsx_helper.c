@@ -61,6 +61,7 @@ static void txn_begin_processing(CPUX86State *env, target_ulong destpc)
     /* need to backup more regs? */
     memcpy(env->rtm_shadow_regs, env->regs, sizeof(target_ulong)*CPU_NB_REGS);
     env->rtm_shadow_eflags = env->eflags;
+    env->tsx_killer_ip = 0;
 
     fprintf(stderr, "CPU %d starting txn (nest %d)\n", env->cpu_index, env->rtm_nest_count);
     fprintf(logfile, "XBEGIN %ld CPU %d PC 0x%lx\n", 
@@ -101,9 +102,19 @@ void txn_abort_processing(CPUX86State *env, uint32_t set_eax, int action)
 
     char reasonbuf[16];
     print_abort_reason(reasonbuf, 16, set_eax);
+
+    const char *reason = "not_remote";
+    if(env->tsx_killer_reason == TX_KILL_READ)
+        reason = "kill_read";
+    else if(env->tsx_killer_reason == TX_KILL_WRITE)
+        reason = "kill_write";
     
-    fprintf(logfile, "XABORT %ld CPU %d PC 0x%lx %s confcount %lu\n", 
-            logcycle, env->cpu_index, env->eip, reasonbuf, env->rtm_conflict_count);
+    fprintf(logfile, "XABORT %ld CPU %d PC 0x%lx %s confcount %lu killer 0x%lx %s\n", 
+            logcycle, env->cpu_index, env->eip, reasonbuf, env->rtm_conflict_count,
+            env->tsx_killer_ip, reason);
+
+    env->tsx_killer_ip = 0;
+    env->tsx_killer_reason = 0;
 
     if(action == ABORT_EXIT)
         cpu_loop_exit(env);
@@ -194,6 +205,11 @@ void HELPER(xend)(CPUX86State *env)
         fprintf(stderr, "ERROR: XEND outside of txn\n");
         raise_exception(env, EXCP0D_GPF);
         return;
+    }
+
+    if(env->tsx_killer_ip)
+    {
+        txn_abort_processing(env, TXA_CONFLICT, ABORT_EXIT);
     }
 
     env->rtm_nest_count -= 1;
@@ -417,6 +433,11 @@ target_ulong HELPER(xmem_read)(CPUX86State *env, int32_t idx, target_ulong a0)
 {
     target_ulong data;
 
+    if(env->tsx_killer_ip)
+    {
+        txn_abort_processing(env, TXA_CONFLICT, ABORT_EXIT);
+    }
+
     switch(idx & 3)
     {
         case 0:
@@ -474,8 +495,29 @@ target_ulong HELPER(xmem_read_s)(CPUX86State *env, int32_t idx, target_ulong a0)
     return value;
 }
 
+
+void HELPER(xmem_try_kill)(CPUX86State *env, target_ulong a0, target_ulong isWrite)
+{
+    target_ulong tag = a0 >> TSX_LOG_CACHE_LINE_SIZE;
+    FOREACH_OTHER_TXN(env, tag, curenv, ctxn, 
+        if(tag == ctxn->tag)
+        {
+            if(isWrite || (ctxn->flags & RTM_FLAG_DIRTY))
+            {
+                curenv->tsx_killer_ip = env->eip;
+                curenv->tsx_killer_reason = (isWrite)?TX_KILL_WRITE:TX_KILL_READ;
+            }
+        }
+    )
+}
+
 void HELPER(xmem_write)(target_ulong data, CPUX86State *env, int32_t idx, target_ulong a0)
 {
+
+    if(env->tsx_killer_ip)
+    {
+        txn_abort_processing(env, TXA_CONFLICT, ABORT_EXIT);
+    }
 
     switch(idx & 3)
     {

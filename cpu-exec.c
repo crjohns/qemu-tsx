@@ -23,7 +23,6 @@
 #include "qemu-barrier.h"
 #include "qtest.h"
 
-#define DEBUG_SINGLESTEP
 
 int txstep = 0;
 

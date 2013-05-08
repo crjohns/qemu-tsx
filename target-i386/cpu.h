@@ -855,6 +855,10 @@ typedef struct CPUX86State {
     target_ulong hle_active;
     target_ulong hle_failed;
 
+    /* transaction kill state */
+    target_ulong tsx_killer_ip;
+    int tsx_killer_reason;
+
     /* RTM state */
     uint32_t rtm_nest_count;
     target_ulong fallbackIP;
