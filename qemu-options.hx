@@ -2433,6 +2433,13 @@ STEXI
 Single step in TSX transactions
 ETEXI
 
+DEF("txtailsteps", HAS_ARG, QEMU_OPTION_txtailsteps, \
+    "-txtailsteps     number of single steps to take after leaving a Haswell transaction\n", QEMU_ARCH_I386)
+STEXI
+@item -txtailsteps
+@findex -txtailsteps
+Number of single steps to take after leaving a Haswell transaction.
+ETEXI
 
 
 DEF("S", 0, QEMU_OPTION_S, \

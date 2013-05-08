@@ -235,6 +235,8 @@ uint8_t *boot_splash_filedata;
 int boot_splash_filedata_size;
 uint8_t qemu_extra_params_fw[2];
 
+extern int txtailsteps;
+
 typedef struct FWBootEntry FWBootEntry;
 
 struct FWBootEntry {
@@ -2970,6 +2972,9 @@ int main(int argc, char **argv, char **envp)
                 break;
             case QEMU_OPTION_txstep:
                 txstep = 1;
+                break;
+            case QEMU_OPTION_txtailsteps:
+                txtailsteps = atoi(optarg);
                 break;
             case QEMU_OPTION_S:
                 autostart = 0;

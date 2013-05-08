@@ -26,6 +26,14 @@
 
 int txstep = 0;
 
+#if defined(TARGET_I386) || defined(TARGET_X86_64)
+#include "target-i386/tsx.h"
+int txtailsteps = DEFAULT_SINGLESTEPS;
+#else
+int txtailsteps;
+#endif
+
+
 int tb_invalidated_flag;
 
 //#define CONFIG_DEBUG_EXEC
@@ -627,7 +635,7 @@ int cpu_exec(CPUArchState *env)
                         if(!env->rtm_active)
                             env->singlesteps_left -= 1;
                         else
-                            env->singlesteps_left = DEFAULT_SINGLESTEPS;
+                            env->singlesteps_left = txtailsteps;
                         
 
                         cpu_exec_nocache(env, 1, tb);
