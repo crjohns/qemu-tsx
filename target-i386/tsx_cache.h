@@ -57,7 +57,7 @@ TSX_RTM_Buffer *alloc_rtm_buf(CPUX86State *env, target_ulong a0);
             int i; \
             for(i = 0; i < cache->ways; i++) \
             { \
-                TSX_RTM_Buffer *var = &cache->buffer[baseIndex+i]; \
+                TSX_RTM_Buffer *var = &cache->buffer[baseIndex*cache->ways+i]; \
                 if(var->flags & RTM_FLAG_ACTIVE) \
                 { body } \
             } \
