@@ -47,18 +47,18 @@ def parseLine(lst):
         pass
     elif logtype == 'XABORT':
         line.abort = True
-        reason = lst[6]
-        if reason[2] != '.':
+        line.reason = lst[6]
+        if line.reason[2] != '.':
             line.abort_a = True
-        if reason[3] != '.':
+        if line.reason[3] != '.':
             line.abort_r = True
-        if reason[4] != '.':
+        if line.reason[4] != '.':
             line.abort_c = True
-        if reason[5] != '.':
+        if line.reason[5] != '.':
             line.abort_o = True
-        if reason[6] != '.':
+        if line.reason[6] != '.':
             line.abort_b = True
-        if reason[7] != '.':
+        if line.reason[7] != '.':
             line.abort_n = True
         line.confcount = lst[8]
     elif logtype == 'EXEC':
@@ -117,9 +117,19 @@ for line in f.readlines():
 
 assert(len(curtrans.keys()) == 0)
 
+def accum_reasons(reasondict, trans):
+    if not trans.getEnd().reason in reasondict:
+        reasondict[trans.getEnd().reason] = 1
+    else:
+        reasondict[trans.getEnd().reason] += 1
+
+    return reasondict
+
+
 def printStats(lst):
     aborted = filter(lambda x: x.aborted(), lst)
     committed = filter(lambda x: x.committed(), lst)
+    abort_reasons = reduce(accum_reasons, aborted, dict())
     print "Transactions/Committed/Aborts: %d/%d (%.2f%%)/%d (%.2f%%)" % (len(lst), 
                 len(committed), 100.0*len(committed)/len(lst),
                 len(aborted), 100.0*len(aborted)/len(lst))
@@ -137,6 +147,11 @@ def printStats(lst):
     if aborted:
         total = (1.0 * reduce(lambda x,y: x + len(y.logs), aborted, 0))
         print "Average Instructions/Abort: %.5f (%d total)" % (total / len(aborted), total)
+    if abort_reasons:
+        print "Abort reasons:"
+        for reason, count in abort_reasons.iteritems():
+            print "    %10s: %4d (%.2f%%)" % (reason, count, 100.0*count/len(aborted))
+
 
 print "ALL TRANSACTIONS:"
 printStats(alltrans)
