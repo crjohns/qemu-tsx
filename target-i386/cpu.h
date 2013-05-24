@@ -858,6 +858,7 @@ typedef struct CPUX86State {
     /* transaction kill state */
     target_ulong tsx_killer_ip;
     int tsx_killer_reason;
+    int tsx_killer_cpu;
 
     /* RTM state */
     uint32_t rtm_nest_count;

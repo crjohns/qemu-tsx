@@ -62,6 +62,8 @@ static void txn_begin_processing(CPUX86State *env, target_ulong destpc)
     memcpy(env->rtm_shadow_regs, env->regs, sizeof(target_ulong)*CPU_NB_REGS);
     env->rtm_shadow_eflags = env->eflags;
     env->tsx_killer_ip = 0;
+    env->tsx_killer_cpu = -1;
+    env->tsx_killer_reason = 0;
 
     fprintf(stderr, "CPU %d starting txn (nest %d)\n", env->cpu_index, env->rtm_nest_count);
     fprintf(logfile, "XBEGIN %ld CPU %d PC 0x%lx\n", 
@@ -109,11 +111,12 @@ void txn_abort_processing(CPUX86State *env, uint32_t set_eax, int action)
     else if(env->tsx_killer_reason == TX_KILL_WRITE)
         reason = "kill_write";
     
-    fprintf(logfile, "XABORT %ld CPU %d PC 0x%lx %s confcount %lu killer 0x%lx %s\n", 
+    fprintf(logfile, "XABORT %ld CPU %d PC 0x%lx %s confcount %lu killer 0x%lx %s cpu %d\n", 
             logcycle, env->cpu_index, env->eip, reasonbuf, env->rtm_conflict_count,
-            env->tsx_killer_ip, reason);
+            env->tsx_killer_ip, reason, env->tsx_killer_cpu);
 
     env->tsx_killer_ip = 0;
+    env->tsx_killer_cpu = -1;
     env->tsx_killer_reason = 0;
 
     if(action == ABORT_EXIT)
@@ -231,7 +234,7 @@ void HELPER(xabort)(CPUX86State *env, uint32_t reason)
 /* detect if another cpu already accessed the line, and abort if they have 
  * This is essentially FCFS conflict resolution */
 __attribute__((unused))
-static int detect_conflict_pessimistic(CPUX86State *env, TSX_RTM_Buffer *rtmbuf)
+static int detect_conflict_pessimistic(CPUX86State *env, TSX_RTM_Buffer *rtmbuf, int *cpuconflict)
 {
 
     FOREACH_OTHER_TXN(env, rtmbuf->tag, current, ctxn, 
@@ -242,6 +245,7 @@ static int detect_conflict_pessimistic(CPUX86State *env, TSX_RTM_Buffer *rtmbuf)
                     env->cpu_index, current->cpu_index, 
                     (void*)(rtmbuf->tag << TSX_LOG_CACHE_LINE_SIZE));
 #endif
+            *cpuconflict = current->cpu_index;
             return 1;
         })
 
@@ -252,7 +256,7 @@ static int detect_conflict_pessimistic(CPUX86State *env, TSX_RTM_Buffer *rtmbuf)
  * accessed a line we are writing 
  * This supports READ/READ
  * */
-static int detect_conflict_writes(CPUX86State *env, TSX_RTM_Buffer *rtmbuf)
+static int detect_conflict_writes(CPUX86State *env, TSX_RTM_Buffer *rtmbuf, int *cpuconflict)
 {
 
     FOREACH_OTHER_TXN(env, rtmbuf->tag, current, ctxn, 
@@ -266,6 +270,7 @@ static int detect_conflict_writes(CPUX86State *env, TSX_RTM_Buffer *rtmbuf)
                         current->cpu_index, 
                         (void*)(rtmbuf->tag << TSX_LOG_CACHE_LINE_SIZE));
 #endif
+                *cpuconflict = current->cpu_index;
                 return 1;
             }
             if(ctxn->flags & RTM_FLAG_DIRTY)
@@ -275,6 +280,7 @@ static int detect_conflict_writes(CPUX86State *env, TSX_RTM_Buffer *rtmbuf)
                         env->cpu_index, current->cpu_index, 
                         (void*)(rtmbuf->tag << TSX_LOG_CACHE_LINE_SIZE));
 #endif
+                *cpuconflict = current->cpu_index;
                 return 1;
             }
 
@@ -350,9 +356,11 @@ static void do_txn_buf_read_byte(target_ulong *out_data, CPUX86State *env,
     }
 
     /* abort on a conflict caused by this read */
-    if(DETECT_CONFLICT(env, rtmbuf))
+    int cpuconflict;
+    if(DETECT_CONFLICT(env, rtmbuf, &cpuconflict))
     {
         env->rtm_conflict_count += 1;
+        env->tsx_killer_cpu = cpuconflict;
         txn_abort_processing(env, TXA_RETRY | TXA_CONFLICT, ABORT_EXIT);
     }
 
@@ -377,9 +385,11 @@ static void do_txn_buf_write_byte(uint8_t byte, CPUX86State *env, target_ulong a
     rtmbuf->flags |= RTM_FLAG_DIRTY;
 
     /* abort on a conflict caused by this write */
-    if(DETECT_CONFLICT(env, rtmbuf))
+    int cpuconflict;
+    if(DETECT_CONFLICT(env, rtmbuf, &cpuconflict))
     {
         env->rtm_conflict_count += 1;
+        env->tsx_killer_cpu = cpuconflict;
         txn_abort_processing(env, TXA_RETRY | TXA_CONFLICT, ABORT_EXIT);
     }
     
@@ -506,6 +516,7 @@ void HELPER(xmem_try_kill)(CPUX86State *env, target_ulong a0, target_ulong isWri
             {
                 curenv->tsx_killer_ip = env->eip;
                 curenv->tsx_killer_reason = (isWrite)?TX_KILL_WRITE:TX_KILL_READ;
+                curenv->tsx_killer_cpu = env->cpu_index;
             }
         }
     )
