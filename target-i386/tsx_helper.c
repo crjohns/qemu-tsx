@@ -64,6 +64,7 @@ static void txn_begin_processing(CPUX86State *env, target_ulong destpc)
     env->tsx_killer_ip = 0;
     env->tsx_killer_cpu = -1;
     env->tsx_killer_reason = 0;
+    env->tsx_killer_addr = 0;
 
     fprintf(stderr, "CPU %d starting txn (nest %d)\n", env->cpu_index, env->rtm_nest_count);
     fprintf(logfile, "XBEGIN %ld CPU %d PC 0x%lx\n", 
@@ -111,9 +112,9 @@ void txn_abort_processing(CPUX86State *env, uint32_t set_eax, int action)
     else if(env->tsx_killer_reason == TX_KILL_WRITE)
         reason = "kill_write";
     
-    fprintf(logfile, "XABORT %ld CPU %d PC 0x%lx %s confcount %lu killer 0x%lx %s cpu %d\n", 
+    fprintf(logfile, "XABORT %ld CPU %d PC 0x%lx %s confcount %lu killer 0x%lx %s cpu %d addr 0x%lx\n", 
             logcycle, env->cpu_index, env->eip, reasonbuf, env->rtm_conflict_count,
-            env->tsx_killer_ip, reason, env->tsx_killer_cpu);
+            env->tsx_killer_ip, reason, env->tsx_killer_cpu, env->tsx_killer_addr);
 
     env->tsx_killer_ip = 0;
     env->tsx_killer_cpu = -1;
@@ -514,6 +515,7 @@ void HELPER(xmem_try_kill)(CPUX86State *env, target_ulong a0, target_ulong isWri
         {
             if(isWrite || (ctxn->flags & RTM_FLAG_DIRTY))
             {
+                curenv->tsx_killer_addr = a0;
                 curenv->tsx_killer_ip = env->eip;
                 curenv->tsx_killer_reason = (isWrite)?TX_KILL_WRITE:TX_KILL_READ;
                 curenv->tsx_killer_cpu = env->cpu_index;

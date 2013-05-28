@@ -857,6 +857,7 @@ typedef struct CPUX86State {
 
     /* transaction kill state */
     target_ulong tsx_killer_ip;
+    target_ulong tsx_killer_addr;
     int tsx_killer_reason;
     int tsx_killer_cpu;
 
