@@ -1,7 +1,7 @@
 QEMU_SRC = $(shell pwd)/..
 QEMU_BUILD = $(shell pwd)/build
 QEMU_INSTALL = $(shell pwd)/build/install
-QEMU_BUILD_JOBS = 6
+QEMU_BUILD_JOBS = 4
 
 QEMU_USER = $(QEMU_INSTALL)/bin/qemu-x86_64
 QEMU_SYSTEM = $(QEMU_INSTALL)/bin/qemu-system-x86_64

@@ -28,7 +28,7 @@ static int xtest()
 }
 
 __attribute__ ((unused))
-static void elock_acquire(int *lock)
+static void elock_acquire(volatile int *lock)
 {
     asm volatile("xorl %%ecx, %%ecx\n\t"
                  "incl %%ecx\n\t"
@@ -40,11 +40,11 @@ static void elock_acquire(int *lock)
                                   */
                  "LOCK cmpxchgl %%ecx, %0\n\t"
                  "jnz 1b\n\t"
-                 : : "m" (*lock) : "%eax", "%ecx");
+                 : : "m" (*lock) : "%eax", "%ecx", "memory");
 }
 
 __attribute__ ((unused))
-static void elock_release(int *lock)
+static void elock_release(volatile int *lock)
 {
     asm volatile("xorl %%ecx, %%ecx\n\t"
                  "1:\n\t"
@@ -56,14 +56,14 @@ static void elock_release(int *lock)
                                   */
                  "LOCK cmpxchgl %%ecx, %0\n\t"
                  "jnz 1b\n\t"
-                 : : "m" (*lock) : "%eax", "%ecx");
+                 : : "m" (*lock) : "%eax", "%ecx", "memory");
 
 }
 
 #define XBEGIN_OP(jmp) ".byte 0xc7, 0xf8; " ".long " #jmp "\n\t"
 
 __attribute__ ((unused))
-static unsigned int xbegin()
+inline static unsigned int xbegin()
 {
     register unsigned int ret;
 //    unsigned long long int v1, v2, v3, v4, v5;
@@ -103,7 +103,7 @@ static unsigned int xbegin()
 
 #define XEND_OP ".byte 0x0f, 0x01, 0xd5\n\t"
 __attribute__ ((unused))
-static void xend()
+inline static void xend()
 {
     asm volatile(XEND_OP);
     asm volatile("":::"memory");
