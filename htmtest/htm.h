@@ -68,13 +68,11 @@ inline static unsigned int xbegin()
     register unsigned int ret;
 //    unsigned long long int v1, v2, v3, v4, v5;
     asm volatile(
-                 XBEGIN_OP(2)
-                 "jmp 1f\n\t" /* TXN abort skips this instruction */
-                 "movl %%eax, %0\n\t" /* TXN abort, return error */
-                 "jmp 2f\n\t"
-                 "1:\n\t" /* In TXN, return _XBEGIN_STARTED */
-                 "movl $" _XBEGIN_STARTED_STR ", %0\n\t"
-                 "2:\n\t"
+                 XBEGIN_OP(0)
+                 "xtest\n\t"
+                 "cmovzl %%eax, %0\n\t" /* TXN abort, return error */
+                 "movl $" _XBEGIN_STARTED_STR ", %%eax\n\t"
+                 "cmovnzl %%eax, %0\n\t"
                  : "=r"(ret) : : "%eax");
 
     asm volatile("":::"memory");
