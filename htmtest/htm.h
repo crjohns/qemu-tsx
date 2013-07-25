@@ -14,102 +14,152 @@
 #define _XBEGIN_STARTED 0xFFFFFFFF
 #define _XBEGIN_STARTED_STR "0xFFFFFFFF"
 
+#ifndef TSX_STORE_STATS
+#define TSX_STORE_STATS 0
+#endif
+
+#if TSX_STORE_STATS
+
+struct tsx_stat
+{
+    unsigned long count __attribute__((aligned(64)));
+    char pad1[] __attribute__((aligned(64)));
+};
+static struct tsx_stat tsx_starts[NUM_THREADS] = {{0}};
+static tsx_stat tsx_aborts[NUM_THREADS] = {{0}};
+static tsx_stat tsx_xabort_code[NUM_THREADS][256] = {{0}};
+static tsx_stat tsx_abort_reason[NUM_THREADS][64] = {{0}};
+#endif
+
+
+
+/*
+ * Copyright (c) 2012,2013 Intel Corporation
+ * Author: Andi Kleen
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that: (1) source code distributions
+ * retain the above copyright notice and this paragraph in its entirety, (2)
+ * distributions including binary code include the above copyright notice and
+ * this paragraph in its entirety in the documentation or other materials
+ * provided with the distribution
+ *
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ */
+
+#define __rtm_force_inline __attribute__((__always_inline__)) inline
 
 __attribute__ ((unused))
-static int xtest()
+static __rtm_force_inline int xbegin(void)
 {
-    register int ret;
-    asm volatile("xor %%eax, %%eax\n\t"
-                 ".byte 0x0f, 0x01, 0xd6\n\t"
-                 "setne %%al\n\t"
-                 "mov %%eax, %0\n\t": "=r"(ret) : : "%eax", "memory");
-
+    int ret = _XBEGIN_STARTED;
+    asm volatile(".byte 0xc7,0xf8 ; .long 0" : "+a" (ret) :: "memory");
+#if TSX_STORE_STATS
+    if(ret == _XBEGIN_STARTED)
+        tsx_starts[CPU()].count += 1;
+    else
+    {
+        tsx_aborts[CPU()].count += 1;
+        tsx_abort_reason[CPU()][ret&0x3F].count += 1;
+        if(ret & TXA_XABORT)
+            tsx_xabort_code[CPU()][(ret>>24) & 0xFF].count += 1;
+    }
+#endif
     return ret;
+}
+
+__attribute__ ((unused)) 
+static void tsx_stats()
+{
+#if TSX_STORE_STATS
+    unsigned int tx = 0;
+    unsigned int txa = 0;
+    unsigned int codes[256] = {0};
+    unsigned int codesum = 0;
+    unsigned int reasons[64] = {0};
+    unsigned int reasonsum = 0;
+
+    for(int i=0; i<NUM_THREADS; i++)
+    {
+        tx += tsx_starts[i].count;
+        txa += tsx_aborts[i].count;
+        for(int j=0; j<256; j++)
+        {
+            codes[j] += tsx_xabort_code[i][j].count;
+            codesum += tsx_xabort_code[i][j].count;
+        }
+        for(int j=0; j<64; j++)
+        {
+            reasons[j] += tsx_abort_reason[i][j].count;
+            reasonsum += tsx_abort_reason[i][j].count;
+        }
+    }
+    
+    fprintf(stderr, "Started TXN: %d  Aborted TXN: %d (%.2f%%)\n",
+            tx, txa, 100.0*txa/tx);
+
+    for(int i=0; i<64; i++)
+    {
+        if(reasons[i])
+            fprintf(stderr, "  Abort Reason 0x%x: %6d (%.4f%%)\n", i, reasons[i], 100.0*reasons[i]/reasonsum);
+    }
+    for(int i=0; i<256; i++)
+    {
+        if(codes[i])
+            fprintf(stderr, "  XABORT Code 0x%x: %6d (%.4f%%)\n", i, codes[i], 100.0*codes[i]/codesum);
+    }
+
+#else
+    fprintf(stderr, "No tsx stats recorded\n");
+#endif
+}
+
+__attribute__ ((unused))
+static __rtm_force_inline void xend(void)
+{
+     asm volatile(".byte 0x0f,0x01,0xd5" ::: "memory");
+}
+
+__attribute__ ((unused))
+static __rtm_force_inline void xabort(const unsigned int status)
+{
+    asm volatile(".byte 0xc6,0xf8,%P0" :: "i" (status) : "memory");
+}
+
+__attribute__ ((unused))
+static __rtm_force_inline int xtest(void)
+{
+    unsigned char out;
+    asm volatile(".byte 0x0f,0x01,0xd6 ; setnz %0" : "=r" (out) :: "memory");
+    return out;
 }
 
 __attribute__ ((unused))
 static void elock_acquire(volatile int *lock)
 {
-    asm volatile("xorl %%ecx, %%ecx\n\t"
-                 "incl %%ecx\n\t"
+    asm volatile(
                  "1:\n\t"
-                 "xorl %%eax, %%eax\n\t"
-                 ".byte 0xf2\n\t" /* gas refuses to add REPNZ on non-string op
-                                     XACQUIRE prefix is the same as REPNZ 
-                                     (0xf2)
-                                  */
-                 "LOCK cmpxchgl %%ecx, %0\n\t"
-                 "jnz 1b\n\t"
-                 : : "m" (*lock) : "%eax", "%ecx", "memory");
+                 "movl $1, %%eax\n\t"
+                 "XACQUIRE LOCK xchg %%eax, %0\n\t"
+                 "cmpl $0, %%eax\n\t"
+                 "jz 3f\n\t"
+                 "2:\n\t"
+                 "cmpl $0, %0\n\t"
+                 "jnz 2b\n\t"
+                 "jmp 1b\n\t"
+                 "3:\n\t"
+                 : : "m" (*lock) : "%eax", "memory");
 }
 
 __attribute__ ((unused))
 static void elock_release(volatile int *lock)
 {
-    asm volatile("xorl %%ecx, %%ecx\n\t"
-                 "1:\n\t"
-                 "xorl %%eax, %%eax\n\t"
-                 "incl %%eax\n\t"
-                 ".byte 0xf3\n\t" /* gas refuses to add REPZ on non-string op
-                                     XRELEASE prefix is the same as REPZ 
-                                     (0xf3)
-                                  */
-                 "LOCK cmpxchgl %%ecx, %0\n\t"
-                 "jnz 1b\n\t"
-                 : : "m" (*lock) : "%eax", "%ecx", "memory");
+    asm volatile( "xor %%eax, %%eax\n\t"
+                   "XRELEASE movl %%eax, %0\n\t"
+                 : : "m" (*lock) : "%eax", "memory");
 
 }
-
-#define XBEGIN_OP(jmp) ".byte 0xc7, 0xf8; " ".long " #jmp "\n\t"
-
-__attribute__ ((unused))
-inline static unsigned int xbegin()
-{
-    register unsigned int ret;
-//    unsigned long long int v1, v2, v3, v4, v5;
-    asm volatile(
-                 XBEGIN_OP(0)
-                 "xtest\n\t"
-                 "cmovzl %%eax, %0\n\t" /* TXN abort, return error */
-                 "movl $" _XBEGIN_STARTED_STR ", %%eax\n\t"
-                 "cmovnzl %%eax, %0\n\t"
-                 : "=r"(ret) : : "%eax");
-
-    asm volatile("":::"memory");
-
-#if 0
-    fprintf(stderr, "ret is 0x%x\n", ret);
-
-
-    asm volatile("mov %%rsp, %0\n\t"
-                 "mov 0x40(%%rsp), %%rax\n\t"
-                 "mov %%rax, %1\n\t"
-                 "mov 0x48(%%rsp), %%rax\n\t"
-                 "mov %%rax, %2\n\t"
-                 "mov 0x50(%%rsp), %%rax\n\t"
-                 "mov %%rax, %3\n\t"
-                 "call 1f\n\t"
-                 "1: pop %%rax\n\t"
-                 "mov %%rax, %4\n\t"
-                 : "=m"(v1),"=m"(v2),"=m"(v3),"=m"(v4),"=m"(v5) : : "%rax");
-
-    fprintf(stderr, "[ip %x] rsp %llx, s0 %llx, s1 %llx, s2 %llx\n", v5, v1, v2, v3, v4);
-#endif
-
-    return ret;
-}
-
-#define XEND_OP ".byte 0x0f, 0x01, 0xd5\n\t"
-__attribute__ ((unused))
-inline static void xend()
-{
-    asm volatile(XEND_OP);
-    asm volatile("":::"memory");
-}
-
-
-/* defined as macro since xabort required encoded immediate */
-#define xabort(imm) { asm volatile(".byte 0xc6, 0xf8, " #imm "\n\t"\
-                        "nop;nop;nop;nop;nop;nop;nop;nop;\n\t"); } /* nop slide for clean disasm */
 
 #endif
