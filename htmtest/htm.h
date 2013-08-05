@@ -24,8 +24,8 @@ struct tsx_stat
 {
     unsigned long count __attribute__((aligned(64)));
     char pad1[] __attribute__((aligned(64)));
-};
-static struct tsx_stat tsx_starts[NUM_THREADS] = {{0}};
+}__attribute__((aligned(64)));
+static struct tsx_stat tsx_commits[NUM_THREADS] = {{0}};
 static tsx_stat tsx_aborts[NUM_THREADS] = {{0}};
 static tsx_stat tsx_xabort_code[NUM_THREADS][256] = {{0}};
 static tsx_stat tsx_abort_reason[NUM_THREADS][64] = {{0}};
@@ -57,9 +57,7 @@ static __rtm_force_inline int xbegin(void)
     int ret = _XBEGIN_STARTED;
     asm volatile(".byte 0xc7,0xf8 ; .long 0" : "+a" (ret) :: "memory");
 #if TSX_STORE_STATS
-    if(ret == _XBEGIN_STARTED)
-        tsx_starts[CPU()].count += 1;
-    else
+    if(ret != _XBEGIN_STARTED)
     {
         tsx_aborts[CPU()].count += 1;
         tsx_abort_reason[CPU()][ret&0x3F].count += 1;
@@ -83,7 +81,7 @@ static void tsx_stats()
 
     for(int i=0; i<NUM_THREADS; i++)
     {
-        tx += tsx_starts[i].count;
+        tx += tsx_commits[i].count;
         txa += tsx_aborts[i].count;
         for(int j=0; j<256; j++)
         {
@@ -97,8 +95,8 @@ static void tsx_stats()
         }
     }
     
-    fprintf(stderr, "Started TXN: %d  Aborted TXN: %d (%.2f%%)\n",
-            tx, txa, 100.0*txa/tx);
+    fprintf(stderr, "Started TXN: %d  Committed TXN: %d (%.2f%%)  Aborted TXN: %d (%.2f%%)\n",
+            tx+txa, tx, 100.0*tx/(tx+txa), txa, 100.0*txa/(tx+txa));
 
     for(int i=0; i<64; i++)
     {
@@ -119,7 +117,8 @@ static void tsx_stats()
 __attribute__ ((unused))
 static __rtm_force_inline void xend(void)
 {
-     asm volatile(".byte 0x0f,0x01,0xd5" ::: "memory");
+    asm volatile(".byte 0x0f,0x01,0xd5" ::: "memory");
+    tsx_commits[CPU()].count += 1;
 }
 
 __attribute__ ((unused))
